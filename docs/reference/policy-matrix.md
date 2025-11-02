@@ -1,5 +1,7 @@
 # Policy Matrix
 
+**Navigation:** Previous: `capability-catalog.md` → Next: `vpd-checklist.md`
+
 Policies link roles to capabilities and endpoints. Use this matrix to understand how decisions flow without wading through every SQL script.
 
 ## Policy Overview
@@ -58,8 +60,8 @@ ORDER BY e.path;
 
 ## Deep Reference
 
-- Full policy-capability mapping: `reference/raw/RBAC/MAPPINGS/PHASE4_POLICY_CAPABILITY_MAPPINGS.md`
-- Endpoint-policy matrix: `reference/raw/RBAC/MAPPINGS/PHASE5_ENDPOINT_POLICY_MAPPINGS.md`
-- Phase 1 endpoint extraction: `reference/raw/RBAC/MAPPINGS/PHASE1_ENDPOINTS_EXTRACTION.md`
+- Full policy-capability mapping: `raw/RBAC/MAPPINGS/PHASE4_POLICY_CAPABILITY_MAPPINGS.md`
+- Endpoint-policy matrix: `raw/RBAC/MAPPINGS/PHASE5_ENDPOINT_POLICY_MAPPINGS.md`
+- Phase 1 endpoint extraction: `raw/RBAC/MAPPINGS/PHASE1_ENDPOINTS_EXTRACTION.md`
 
 Use this matrix to understand the shape of the authorization catalogue before reaching for the exhaustive tables.

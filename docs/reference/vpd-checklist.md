@@ -1,5 +1,7 @@
 # VPD Checklist
 
+**Navigation:** Previous: `policy-matrix.md` → Next: `postgres-operations.md`
+
 Keep this checklist handy when reviewing or troubleshooting row-level security changes. It distills the detailed notes from `reference/raw/VPD/README.md`.
 
 ## Before Deploying
@@ -43,7 +45,7 @@ SELECT COUNT(*) FROM payment_flow.payment_requests;
 
 ## Related Guides
 
-- Concept primer – `foundations/data-guardrails-101.md`
-- Verification steps – `guides/verify-permissions.md`
-- Troubleshooting – `playbooks/troubleshoot-auth.md`
-- Legacy details – `reference/raw/VPD/`
+- Concept primer – `../foundations/data-guardrails-101.md`
+- Verification steps – `../guides/verify-permissions.md`
+- Troubleshooting – `../playbooks/troubleshoot-auth.md`
+- Legacy details – `raw/VPD/`

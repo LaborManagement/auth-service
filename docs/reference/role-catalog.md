@@ -1,5 +1,7 @@
 # Role Catalog
 
+**Navigation:** Previous: `../guides/setup/vpd.md` → Next: `capability-catalog.md`
+
 Use this catalog when you need a concise snapshot of each platform role. For full historical detail, see the legacy document in `reference/raw/ONBOARDING_ROLES.md`.
 
 | Role | Capability Count | Typical User | Highlights | Default UI Areas |
@@ -52,6 +54,6 @@ ORDER BY e.path;
 
 ## Further Reading
 
-- Stories and analogies – `start/role-stories.md`
-- How to add permissions – `guides/extend-access.md`
-- Raw role breakdown – `reference/raw/ONBOARDING_ROLES.md`
+- Stories and analogies – `../start/role-stories.md`
+- How to add permissions – `../guides/extend-access.md`
+- Raw role breakdown – `raw/ONBOARDING_ROLES.md`

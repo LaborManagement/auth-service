@@ -1,5 +1,7 @@
 # Capability Catalog
 
+**Navigation:** Previous: `role-catalog.md` → Next: `policy-matrix.md`
+
 This catalog explains how capabilities are organised and where to find the full list. Capabilities follow the naming convention `<domain>.<subject>.<action>` and live in the `auth.capability` table.
 
 ## High-Level Buckets
@@ -44,8 +46,8 @@ ORDER BY name;
 
 ## Deep Dive
 
-- The complete phase 3 catalogue lives in `reference/raw/RBAC/DEFINITIONS/PHASE3_CAPABILITIES_DEFINITION.md`.
-- UI page → capability mapping is in `reference/raw/RBAC/DEFINITIONS/PHASE2_UI_PAGES_ACTIONS.md`.
-- Endpoint → policy bindings are tracked in `reference/raw/RBAC/MAPPINGS/`.
+- The complete phase 3 catalogue lives in `raw/RBAC/DEFINITIONS/PHASE3_CAPABILITIES_DEFINITION.md`.
+- UI page → capability mapping is in `raw/RBAC/DEFINITIONS/PHASE2_UI_PAGES_ACTIONS.md`.
+- Endpoint → policy bindings are tracked in `raw/RBAC/MAPPINGS/`.
 
 Keep this summary handy when naming new permissions or reviewing feature proposals.

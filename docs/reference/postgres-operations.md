@@ -1,5 +1,7 @@
 # PostgreSQL Operations Checklist
 
+**Navigation:** Previous: `vpd-checklist.md` → Next: `raw/README.md`
+
 Use this checklist when managing the PostgreSQL instance that powers the auth service. It summarises the operational guidance from `reference/raw/POSTGRES/`.
 
 ## Routine Tasks
@@ -47,6 +49,6 @@ WHERE query ILIKE '%set_user_context%';
 
 ## Further Reading
 
-- Concept primer – `foundations/postgres-for-auth.md`
-- Troubleshooting flow – `playbooks/troubleshoot-auth.md`
-- Legacy operations manual – `reference/raw/POSTGRES/README.md`
+- Concept primer – `../foundations/postgres-for-auth.md`
+- Troubleshooting flow – `../playbooks/troubleshoot-auth.md`
+- Legacy operations manual – `raw/POSTGRES/README.md`
