@@ -5,6 +5,7 @@ Everything in this folder explains how access control is structured in the auth 
 ## What Lives Here
 - `ARCHITECTURE.md` – request flow, enforcement layers, integration points.
 - `SETUP_GUIDE.md` – applying the SQL, wiring Spring Security, and validating the rollout.
+- `NOVICE_GUIDE.md` – beginner-friendly RBAC primer without implementation dependencies.
 - `ROLES.md` – concise view of the seven production roles and their scope.
 - `DEFINITIONS/` – source of truth for capability names and UI page inventory.
 - `MAPPINGS/` – endpoint, policy, and capability relationships.
