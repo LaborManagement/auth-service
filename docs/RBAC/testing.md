@@ -1,143 +1,76 @@
 # RBAC Testing Guide
 
-## Testing Flow
+Use these checks after seeding the database or deploying code that touches authorisation. They focus on verifying policies, capabilities, and RLS behaviour without repeating information kept elsewhere.
 
-### Test 1: Verify RBAC Structure
-
-```sql
--- Check all roles exist
-SELECT * FROM roles WHERE is_active = true;
-
--- Check users have roles
-SELECT u.id, u.username, r.name as role
-FROM users u
-JOIN user_role_assignment ura ON u.id = ura.user_id
-JOIN roles r ON ura.role_id = r.id
-WHERE u.is_enabled = true;
-
--- Check policies exist
-SELECT name, description FROM policies WHERE is_active = true;
-```
-
-### Test 2: Verify User Capabilities
+## Database Sanity Checks
 
 ```sql
--- Check what User 8 (WORKER) can do
-SELECT DISTINCT c.name, c.module, c.action
+-- Roles present and active
+SELECT name, is_active FROM roles ORDER BY name;
+
+-- Seed users mapped to roles
+SELECT u.username, r.name
 FROM users u
-JOIN user_role_assignment ura ON u.id = ura.user_id
-JOIN roles r ON ura.role_id = r.id
-JOIN policy_capability pc ON r.id = pc.policy_id
-JOIN capabilities c ON pc.capability_id = c.id
-WHERE u.id = 8;
--- Expected: Only read capabilities
+JOIN user_role_assignment ura ON ura.user_id = u.id
+JOIN roles r ON r.id = ura.role_id
+ORDER BY u.username;
 
--- Check what User 1 (ADMIN) can do
-SELECT DISTINCT c.name, c.module, c.action
-FROM users u
-JOIN user_role_assignment ura ON u.id = ura.user_id
-JOIN roles r ON ura.role_id = r.id
-JOIN policy_capability pc ON r.id = pc.policy_id
-JOIN capabilities c ON pc.capability_id = c.id
-WHERE u.id = 1;
--- Expected: All capabilities
+-- Capabilities linked to policies
+SELECT p.name, COUNT(*) AS capability_count
+FROM policies p
+JOIN policy_capability pc ON pc.policy_id = p.id
+GROUP BY p.name
+ORDER BY p.name;
 ```
 
-### Test 3: Test API Endpoint Access
+Expect to see 7 roles, 7 policies, and counts that match the allocations listed in `ROLES.md`.
 
-```bash
-# 1. Login as User 1 (Admin)
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "password"}'
-
-# Expected: JWT token with ADMIN role
-
-# 2. Try creating a user (should succeed for Admin)
-curl -X POST http://localhost:8080/api/users \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "newuser", "email": "new@test.com"}'
-
-# Expected: 201 Created
-
-# 3. Login as User 8 (Worker)
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "worker8", "password": "password"}'
-
-# Expected: JWT token with WORKER role
-
-# 4. Try creating a user (should fail for Worker)
-curl -X POST http://localhost:8080/api/users \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "newuser", "email": "new@test.com"}'
-
-# Expected: 403 Forbidden
-```
-
-### Test 4: JWT Token Verification
-
-```bash
-# Decode JWT token (use jwt.io or command line):
-# The token should contain:
-# {
-#   "sub": "8",
-#   "username": "worker8",
-#   "email": "worker8@example.com",
-#   "roles": ["WORKER"],
-#   "iat": 1234567890,
-#   "exp": 1234571490
-# }
-```
-
-### Test 5: Policy Evaluation
+## Capability Spot Checks
 
 ```sql
--- Check if endpoint is protected
-SELECT ep.*, p.name as policy_name
-FROM endpoints e
-JOIN endpoint_policy ep ON e.id = ep.endpoint_id
-JOIN policies p ON ep.policy_id = p.id
-WHERE e.path = '/api/users' AND e.method = 'POST';
-
--- Check which roles can access
-SELECT DISTINCT r.name
-FROM endpoint_policy ep
-JOIN policies p ON ep.policy_id = p.id
-JOIN policy_capability pc ON p.id = pc.policy_id
-JOIN roles r ON r.id = pc.role_id
-WHERE ep.endpoint_id = 1;
+-- Worker profile: should only expose read/upload operations
+SELECT c.name
+FROM users u
+JOIN user_role_assignment ura ON ura.user_id = u.id
+JOIN policy_capability pc ON pc.policy_id = ura.role_id
+JOIN capabilities c ON c.id = pc.capability_id
+WHERE u.username = 'worker8'
+ORDER BY c.name;
 ```
 
-## Testing Checklist
+Swap the username to validate other personas (`admin.tech`, `board1`, etc.).
 
-- [ ] All roles created (ADMIN, WORKER, EMPLOYER, DATA_OPS)
-- [ ] Users assigned to roles
-- [ ] Capabilities defined for all operations
-- [ ] Policies created mapping roles to capabilities
-- [ ] Endpoints protected with policies
-- [ ] Different users see different capabilities
-- [ ] Admin can access all endpoints
-- [ ] Worker can only access read endpoints
-- [ ] Employer can access their limited endpoints
-- [ ] JWT token contains role information
-- [ ] Unauthenticated requests return 401
-- [ ] Unauthorized requests return 403
-
-## Performance Test
+## API Behaviour
 
 ```bash
-# Test authentication response time
-time curl -X POST http://localhost:8080/api/auth/login \
+# Login
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "password"}'
+  -d '{"username":"admin.tech","password":"password"}' \
+  | jq -r '.token')
 
-# Test policy evaluation response time
-time curl -X GET http://localhost:8080/api/users \
-  -H "Authorization: Bearer <JWT_TOKEN>"
+# Endpoint allowed for ADMIN_TECH
+curl -i -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/admin/roles
 
-# Both should complete within < 100ms
+# Endpoint denied for WORKER
+curl -i -X POST -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/worker/uploaded-data/upload
 ```
 
+Observe 200 responses where policies allow the call and 403 otherwise. Adjust credentials per role you are verifying.
+
+## RLS Validation
+
+```sql
+SET ROLE app_payment_flow;
+SELECT auth.set_user_context('8');  -- worker8
+SELECT COUNT(*) FROM payment_flow.worker_uploaded_data; -- filtered rows
+```
+
+Repeat for an employer user and confirm row counts change as expected. Use the SQL snippets in `../VPD/testing/` for deeper coverage.
+
+## Automation Hooks
+
+- Incorporate the SQL checks into integration tests by running them via migrations or a lightweight test harness.
+- Keep curl-based smoke tests in CI to ensure endpoint policies remain intact after code changes.

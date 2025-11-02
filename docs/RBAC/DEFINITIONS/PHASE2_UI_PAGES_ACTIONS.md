@@ -13,29 +13,24 @@ Defined **8 major UI page groups** with complete hierarchy, page actions, and ro
 
 ## UI Page Hierarchy
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    SYSTEM UI PAGES                              │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                ┌─────────────┼─────────────┐
-                │             │             │
-                ▼             ▼             ▼
-        ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-        │  Dashboard   │ │   Payment    │ │   Request    │
-        │  (Public)    │ │ Management   │ │ Management   │
-        └──────────────┘ └──────────────┘ └──────────────┘
-                │             │             │
-         ┌──────┼──────┐      │             │
-         │      │      │      │             │
-         ▼      ▼      ▼      ▼             ▼
-      Landing Overview Notif. Upload View Requests
-                              │
-         ┌─────────────────────┼─────────────────────┐
-         │                     │                     │
-         ▼                     ▼                     ▼
-     Create              Approve           Forward
-     Request             Receipt           To Board
+```mermaid
+graph TD
+    Root[System UI Pages]
+    Root --> Dashboard[Dashboard (Public)]
+    Root --> Payment[Payment Management]
+    Root --> Request[Request Management]
+
+    Dashboard --> DashLanding[Landing]
+    Dashboard --> DashOverview[Overview]
+    Dashboard --> DashNotif[Notifications]
+
+    Payment --> PayUpload[Upload]
+    Payment --> PayView[View Files]
+
+    Request --> ReqView[View Requests]
+    ReqView --> ReqCreate[Create Request]
+    ReqView --> ReqApprove[Approve Receipt]
+    ReqView --> ReqForward[Forward to Board]
 ```
 
 ---
@@ -333,25 +328,18 @@ Defined **8 major UI page groups** with complete hierarchy, page actions, and ro
 
 ## Role-to-UI Page Access Matrix
 
-```
-┌─────────────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐
-│ UI Page Group   │ WORKER   │ EMPLOYER │ BOARD    │ ADMIN_OP │ ADMIN_TE │ TEST_USR │ PLATFRM  │
-├─────────────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ Dashboard       │ ✅       │ ✅       │ ✅       │ ✅       │ ✅       │ ✅       │ ✅       │
-│ Payment Mgmt    │ ✅       │ ✅       │ ✅       │ ✅       │ ❌       │ ✅       │ ✅       │
-│ Request Mgmt    │ ✅       │ ✅       │ ✅       │ ✅       │ ❌       │ ✅       │ ✅       │
-│ Approvals       │ ❌       │ ✅       │ ✅       │ ✅       │ ❌       │ ✅       │ ✅       │
-│ User Mgmt       │ ❌       │ ❌       │ ❌       │ ✅       │ ✅       │ ✅       │ ✅       │
-│ RBAC Config     │ ❌       │ ❌       │ ❌       │ ❌       │ ✅       │ ✅       │ ✅       │
-│ UI Config       │ ❌       │ ❌       │ ❌       │ ❌       │ ✅       │ ✅       │ ✅       │
-│ System Config   │ ❌       │ ❌       │ ❌       │ ✅       │ ✅       │ ✅       │ ✅       │
-└─────────────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+| UI Page Group | WORKER | EMPLOYER | BOARD | ADMIN_OPS | ADMIN_TECH | TEST_USER | PLATFORM_BOOTSTRAP |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Dashboard | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Payment Mgmt | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Request Mgmt | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Approvals | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| User Mgmt | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| RBAC Config | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| UI Config | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| System Config | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 
-Legend:
-✅ = Full Access
-⚠️  = Limited Access
-❌ = No Access
-```
+Legend: ✅ full access · ⚠️ limited access · ❌ none
 
 ---
 

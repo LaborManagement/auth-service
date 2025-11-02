@@ -8,58 +8,31 @@ VPD/RLS automatically filters database rows based on user permissions at the **d
 
 ### How It Works
 
-```
-User Login → JWT Token → User Makes Request → Spring Security verifies JWT
-    ↓
-RLSContextFilter sets user_id in PostgreSQL transaction
-    ↓
-Application queries database → PostgreSQL RLS Policy checks permissions
-    ↓
-Only allowed rows returned (filtering at database layer)
+```mermaid
+flowchart TD
+    A[User authenticates] --> B[Spring Security validates JWT]
+    B --> C[RLSContextFilter<br/>sets user context]
+    C --> D[Application executes query]
+    D --> E[PostgreSQL RLS policies evaluate row access]
+    E --> F[Only authorised rows returned]
 ```
 
 ### Architecture Diagram
 
-```
-┌────────────────────────────────────────────────────┐
-│              USER MAKES REQUEST                    │
-│          (GET /api/payments)                       │
-└───────────────────┬────────────────────────────────┘
-                    │ Authorization: Bearer <JWT>
-                    ↓
-        ┌───────────────────────────┐
-        │   Spring Security Layer   │
-        │  - JWT Validation         │
-        │  - Extract user_id        │
-        └──────────┬────────────────┘
-                   │
-                   ↓
-        ┌──────────────────────────────┐
-        │   RLSContextFilter           │
-        │  - Call: set_user_context()  │
-        │  - Store user_id in trans.   │
-        └──────────┬───────────────────┘
-                   │
-                   ↓
-        ┌──────────────────────────────────┐
-        │    Application Query             │
-        │    SELECT * FROM data_table      │
-        └──────────┬───────────────────────┘
-                   │
-                   ↓
-        ┌──────────────────────────────────────────┐
-        │  PostgreSQL RLS Policy (database layer)  │
-        │  For each row:                           │
-        │  - Check: can_read_row(board_id, ..)?    │
-        │  - If YES → include row                  │
-        │  - If NO  → exclude row                  │
-        └──────────┬───────────────────────────────┘
-                   │
-                   ↓
-        ┌────────────────────────────────┐
-        │  Return Filtered Results       │
-        │  (Only allowed rows)           │
-        └────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant User
+    participant API as Spring Security
+    participant Filter as RLSContextFilter
+    participant DB as PostgreSQL
+
+    User->>API: Request + JWT
+    API->>API: Validate token & extract user_id
+    API->>Filter: Pass authenticated principal
+    Filter->>DB: SELECT auth.set_user_context(user_id)
+    API->>DB: Business query
+    DB-->>API: Rows filtered by RLS policies
+    API-->>User: Response with authorised data only
 ```
 
 ## 🎯 Key Concepts
@@ -75,13 +48,11 @@ Every data table has two columns that control access:
 
 ### Permission Matrix
 
-```
-User ID │ Role     │ Board    │ Employer    │ Can Read │ Can Write
-────────┼──────────┼──────────┼─────────────┼──────────┼──────────
-1       │ ADMIN    │ BOARD_1  │ NULL        │ ✓ ALL    │ ✓ ALL
-8       │ WORKER   │ BOARD_1  │ EMP_2       │ ✓ EMP_2  │ ✗ 
-2       │ EMPLOYER │ BOARD_1  │ EMP_1       │ ✓ EMP_1  │ ✓ EMP_1
-```
+| User ID | Role | Board | Employer | Can Read | Can Write |
+| --- | --- | --- | --- | --- | --- |
+| 1 | ADMIN | BOARD_1 | NULL | ✓ All | ✓ All |
+| 8 | WORKER | BOARD_1 | EMP_2 | ✓ EMP_2 | ✗ |
+| 2 | EMPLOYER | BOARD_1 | EMP_1 | ✓ EMP_1 | ✓ EMP_1 |
 
 **Result:** User 8 with `BOARD_1 + EMP_2` sees only rows with that combination.
 
@@ -136,4 +107,3 @@ SELECT * FROM payment_flow.worker_uploaded_data;
 1. **New to VPD?** → Read [Setup Guide](setup.md)
 2. **Want to test?** → See [Testing Guide](testing.md)
 3. **Something broken?** → Check [Troubleshooting](troubleshoot.md)
-

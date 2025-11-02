@@ -935,26 +935,11 @@ Defined comprehensive policy-capability mappings for all **7 roles**, showing ex
 
 ## Role Hierarchy & Inheritance
 
-```
-PLATFORM_BOOTSTRAP (One-time initialization)
-    ├─ ADMIN_TECH (Ongoing system administration)
-    │   ├─ ADMIN_OPS (Operational management)
-    │   │   ├─ BOARD (Board-level approvals)
-    │   │   │   ├─ EMPLOYER (Request validation & approval)
-    │   │   │   │   └─ WORKER (Basic user operations)
-    │   │   │   └─ EMPLOYER (Request validation & approval)
-    │   │   │       └─ WORKER (Basic user operations)
-    │   └─ TEST_USER (QA testing - not in main hierarchy)
-```
-
-**Hierarchy Notes:**
-- PLATFORM_BOOTSTRAP has all permissions (initialization only)
-- ADMIN_TECH manages system configuration
-- ADMIN_OPS monitors operations and triggers ingestion
-- BOARD performs financial approvals
-- EMPLOYER validates and approves requests
-- WORKER submits requests and uploads data
-- TEST_USER has wide read access plus testing capabilities
+Refer to `../ARCHITECTURE.md` for the mermaid visualisation of the hierarchy. The key relationships captured in this file are:
+- PLATFORM_BOOTSTRAP owns every capability and is only used during initial seeding.
+- ADMIN_TECH delegates operational responsibilities to ADMIN_OPS, retaining configuration authority.
+- ADMIN_OPS supports BOARD, EMPLOYER, and WORKER personas via policy assignments.
+- TEST_USER mirrors broad read/write access for QA purposes without bootstrap authority.
 
 ---
 
@@ -992,27 +977,19 @@ Each role gets minimum permissions needed for its function:
 
 The system uses a **three-layer authorization model** for maximum flexibility:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ LAYER 1: CAPABILITY-POLICY (Permissions)                    │
-│ Defines WHAT operations a role can perform                   │
-│ Example: Can a WORKER upload payment files?                  │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│ LAYER 2: ENDPOINT-POLICY (API Access Control)               │
-│ Defines WHICH endpoints a role can call                      │
-│ Example: Can a BOARD user call /api/mt940/ingest?           │
-│ Note: An endpoint may require multiple capabilities          │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│ LAYER 3: UI_PAGE-POLICY (UI Navigation)                     │
-│ Defines WHICH pages a role sees in the UI                    │
-│ Example: Does a WORKER see the System Configuration page?    │
-│ Note: UI pages are associated with page actions that call    │
-│       endpoints that require capabilities                    │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Capability[Layer 1<br/>Capability ↔ Policy] --> Endpoint[Layer 2<br/>Endpoint ↔ Policy]
+    Endpoint --> UI[Layer 3<br/>UI Page ↔ Policy]
+
+    Capability:::layer -->|Example: payment.file.upload| Endpoint
+    Endpoint:::layer -->|Example: POST /api/worker/uploaded-data/upload| UI
+    UI:::layer -->|Example: Payment Upload page| Result[Allow / Deny]
+
+    classDef layer fill:#0b7285,stroke:#0b7285,color:#fff;
+    class Endpoint layer;
+    class Capability layer;
+    class UI layer;
 ```
 
 ### Why Three Layers?
