@@ -1,12 +1,11 @@
 # Production environment configuration for Azure Container Apps with Azure MySQL Flexible Server
 spring:
   datasource:
-    # url: ${DB_URL:jdbc:mysql://paymentreconciliation.mysql.database.azure.com:3306/paymentreconciliation_prod?useSSL=true&requireSSL=true&sslMode=REQUIRED&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8&useUnicode=true}
-    # driver-class-name: com.mysql.cj.jdbc.Driver
+    # PostgreSQL connection for RLS/VPD
     url: ${DB_URL:jdbc:postgresql://paymentreconciliation-postgres:5432/labormanagement?currentSchema=auth}
     driver-class-name: org.postgresql.Driver
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    username: ${DB_USERNAME:app_auth}
+    password: ${DB_PASSWORD:change-me-in-production}
     hikari:
       maximum-pool-size: 20
       minimum-idle: 5
@@ -15,7 +14,7 @@ spring:
       max-lifetime: 1200000
       leak-detection-threshold: 60000
       connection-test-query: SELECT 1
-      auto-commit: false
+      auto-commit: true  # Important: allows transaction-local RLS context to persist
   jpa:
     hibernate:
       ddl-auto: validate  # Don't auto-create tables in prod

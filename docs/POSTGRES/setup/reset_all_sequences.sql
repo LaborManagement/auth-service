@@ -1,4 +1,19 @@
+-- PostgreSQL Sequence Reset Script
+-- ============================================================================
 -- Resets every owned sequence to the current MAX(id) value of its table.
+--
+-- This is useful after:
+--   • Bulk data import from MySQL
+--   • Database restoration from backup
+--   • Manual data inserts
+--
+-- USAGE:
+--   psql -U postgres -d <database> -f reset_all_sequences.sql
+--
+-- NOTE: This script will find all sequences and align them with their
+--       corresponding tables' MAX(id) values.
+-- ============================================================================
+
 DO $$
 DECLARE
     seq record;
@@ -28,10 +43,14 @@ BEGIN
             max_id := 0;
         END IF;
 
+        RAISE NOTICE 'Resetting sequence % to %', seq.qualified_sequence, max_id;
+        
         EXECUTE format('SELECT setval(%L, %s, %s)',
                        seq.qualified_sequence,
                        max_id,
                        CASE WHEN is_called THEN 'true' ELSE 'false' END);
     END LOOP;
+    
+    RAISE NOTICE 'All sequences have been reset successfully!';
 END
 $$;

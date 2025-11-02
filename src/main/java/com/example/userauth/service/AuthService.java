@@ -6,8 +6,10 @@ import com.example.userauth.dto.RegisterRequest;
 import com.example.userauth.entity.Role;
 import com.example.userauth.entity.User;
 import com.example.userauth.entity.UserRole;
+import com.example.userauth.entity.UserTenantAcl;
 import com.example.userauth.repository.UserRepository;
 import com.example.userauth.repository.RoleRepository;
+import com.example.userauth.repository.UserTenantAclRepository;
 import com.example.userauth.security.JwtUtils;
 import com.example.userauth.dao.UserQueryDao;
 import org.slf4j.Logger;
@@ -49,6 +51,9 @@ public class AuthService {
     
     @Autowired
     private RoleRepository roleRepository;
+    
+    @Autowired
+    private UserTenantAclRepository userTenantAclRepository;
     
     @Autowired
     private UserQueryDao userQueryDao;
@@ -134,6 +139,11 @@ public class AuthService {
             throw new RuntimeException("Error: Email is already in use!");
         }
         
+        // Validate board_id is provided
+        if (!StringUtils.hasText(registerRequest.getBoardId())) {
+            throw new RuntimeException("Error: Board ID is required for registration!");
+        }
+        
         // Create new user account with default permission version 1
         User user = new User(
             registerRequest.getUsername(),
@@ -142,10 +152,29 @@ public class AuthService {
             registerRequest.getFullName(),
             registerRequest.getRole() != null ? registerRequest.getRole() : UserRole.WORKER
         );
-
+        
         userRepository.save(user);
         
         logger.info("User {} registered successfully", user.getUsername());
+        
+        // Create ACL entry for the user with board_id and employer_id mapping
+        UserTenantAcl userTenantAcl = new UserTenantAcl();
+        userTenantAcl.setUserId(user.getId());
+        userTenantAcl.setBoardId(registerRequest.getBoardId());
+        userTenantAcl.setEmployerId(registerRequest.getEmployerId());
+        
+        // Set permissions based on user role
+        userTenantAcl.setCanRead(true);
+        userTenantAcl.setCanWrite(
+            user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.EMPLOYER
+        );
+        
+        userTenantAclRepository.save(userTenantAcl);
+        
+        logger.info("Created user_tenant_acl entry for user {} with read={}, write={}", 
+            user.getId(), 
+            userTenantAcl.getCanRead(), 
+            userTenantAcl.getCanWrite());
         
         // Auto-login after registration
         Authentication authentication = authenticationManager.authenticate(

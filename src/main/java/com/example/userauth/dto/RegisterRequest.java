@@ -24,6 +24,13 @@ public class RegisterRequest {
     
     private UserRole role;
     
+    @NotBlank(message = "Board ID is required")
+    @Size(min = 1, max = 64, message = "Board ID must be between 1 and 64 characters")
+    private String boardId;
+    
+    @Size(max = 64, message = "Employer ID must be at most 64 characters")
+    private String employerId;
+    
     // Constructors
     public RegisterRequest() {}
     
@@ -33,6 +40,16 @@ public class RegisterRequest {
         this.password = password;
         this.fullName = fullName;
         this.role = role;
+    }
+    
+    public RegisterRequest(String username, String email, String password, String fullName, UserRole role, String boardId, String employerId) {
+        this.username = username;
+        this.email = email;
+        this.password = password;
+        this.fullName = fullName;
+        this.role = role;
+        this.boardId = boardId;
+        this.employerId = employerId;
     }
     
     // Getters and Setters
@@ -74,5 +91,21 @@ public class RegisterRequest {
     
     public void setRole(UserRole role) {
         this.role = role;
+    }
+    
+    public String getBoardId() {
+        return boardId;
+    }
+    
+    public void setBoardId(String boardId) {
+        this.boardId = boardId;
+    }
+    
+    public String getEmployerId() {
+        return employerId;
+    }
+    
+    public void setEmployerId(String employerId) {
+        this.employerId = employerId;
     }
 }
