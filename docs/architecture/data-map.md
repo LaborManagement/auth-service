@@ -8,17 +8,17 @@ This guide maps the PostgreSQL tables that power authentication and authorizatio
 
 ```mermaid
 erDiagram
-    auth_user ||--o{ auth_user_role : "holds"
-    auth_role ||--o{ auth_role_policy : "activates"
-    auth_policy ||--o{ auth_policy_capability : "bundles"
-    auth_capability ||--o{ auth_policy_capability : ""
-    auth_endpoint ||--o{ auth_endpoint_policy : "requires"
+    auth_user["auth.user"] ||--o{ auth_user_role["auth.user_role"] : "holds"
+    auth_role["auth.role"] ||--o{ auth_role_policy["auth.role_policy"] : "activates"
+    auth_policy["auth.policy"] ||--o{ auth_policy_capability["auth.policy_capability"] : "bundles"
+    auth_capability["auth.capability"] ||--o{ auth_policy_capability : ""
+    auth_endpoint["auth.endpoint"] ||--o{ auth_endpoint_policy["auth.endpoint_policy"] : "requires"
     auth_policy ||--o{ auth_endpoint_policy : ""
-    auth_capability ||--o{ auth_ui_page_capability : "shows"
-    auth_ui_page ||--o{ auth_ui_page_capability : ""
-    auth_capability ||--o{ auth_ui_action_capability : "enables"
-    auth_ui_action ||--o{ auth_ui_action_capability : ""
-    auth_user ||--o{ auth_user_tenant_acl : "tenant scope"
+    auth_capability ||--o{ auth_ui_page_capability["auth.ui_page_capability"] : "shows"
+    auth_ui_page["auth.ui_page"] ||--o{ auth_ui_page_capability : ""
+    auth_capability ||--o{ auth_ui_action_capability["auth.ui_action_capability"] : "enables"
+    auth_ui_action["auth.ui_action"] ||--o{ auth_ui_action_capability : ""
+    auth_user ||--o{ auth_user_tenant_acl["auth.user_tenant_acl"] : "tenant scope"
 ```
 
 - **Users** connect to **Roles** via `auth.user_role`.

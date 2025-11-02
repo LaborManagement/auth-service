@@ -1,5 +1,7 @@
 # Troubleshoot Auth Playbook
 
+**Navigation:** Jump back to the guided path via `../README.md` when you finish debugging.
+
 Something broke? Use this playbook to work from symptoms to solutions. The steps assume you already know the basics from the Foundations guides.
 
 ## Quick Triage

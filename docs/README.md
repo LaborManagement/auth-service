@@ -1,32 +1,38 @@
 # Auth Service Journey
 
-Start here and follow the sequence—each document ends with a pointer to the next stop so you never lose the thread. Detours (welcome stories, primers, raw tables) are still available if you need them, but the core onboarding path runs straight through the files below.
+Follow this path step by step—each document links directly to the next so you always know where to go.
 
-## Primary Path
+## Guided Path
 
-1. **Architecture Overview** – `architecture/overview.md`
-   - High-level topology, authentication touchpoints, and enforcement layers.
-2. **Data Map** – `architecture/data-map.md`
-   - ER diagram linking users, roles, policies, capabilities, endpoints, and tenant ACL.
-3. **Journey: Login To Data** – `guides/login-to-data.md`
-   - Persona-led walkthrough of JWT issuance, validation, authorization, and RLS.
-4. **RBAC Setup Playbook** – `guides/setup/rbac.md`
-   - Exact sequence for creating roles, policies, capabilities, endpoints, and UI bindings.
-5. **VPD Setup Playbook** – `guides/setup/vpd.md`
-   - How to wire tenant-aware row-level security and test contrasting users.
-6. **Reference Loop** – begin at `reference/role-catalog.md`
-   - Concise catalogues (roles → capabilities → policies → VPD → operations) with links back to raw data.
+1. **Step 1 · [Architecture Overview](architecture/overview.md)**  
+   Meet every component and see how authentication and authorization fit together.  
+   → Next: **Step 2 · [Data Map](architecture/data-map.md)**
+2. **Step 2 · [Data Map](architecture/data-map.md)**  
+   Understand how tables relate (users → roles → policies → capabilities → endpoints → tenant ACL).  
+   → Next: **Step 3 · [Journey: Login To Data](guides/login-to-data.md)**
+3. **Step 3 · [Journey: Login To Data](guides/login-to-data.md)**  
+   Follow worker, employer, and board personas from login through JWT validation, authorization, and RLS.  
+   → Next: **Step 4 · [RBAC Setup Playbook](guides/setup/rbac.md)**
+4. **Step 4 · [RBAC Setup Playbook](guides/setup/rbac.md)**  
+   Create roles, policies, capabilities, endpoints, and UI wiring in the correct order.  
+   → Next: **Step 5 · [VPD Setup Playbook](guides/setup/vpd.md)**
+5. **Step 5 · [VPD Setup Playbook](guides/setup/vpd.md)**  
+   Configure row-level security, load tenant ACL, and test contrasting users.  
+   → Next: **Step 6 · [Role Catalog](reference/role-catalog.md)**
+6. **Step 6 · [Role Catalog](reference/role-catalog.md)**  
+   Drop into the concise references (roles → capabilities → policies → VPD → operations) with links into raw data.  
+   → Continue through the reference loop:  
+   `[Capability Catalog](reference/capability-catalog.md)` → `[Policy Matrix](reference/policy-matrix.md)` → `[VPD Checklist](reference/vpd-checklist.md)` → `[PostgreSQL Operations](reference/postgres-operations.md)` → `[Raw Reference Index](reference/raw/README.md)`
 
-## Supporting Material
+## Optional Companions
 
-- `start/` – Story-driven onboarding for brand-new teammates (optional pre-read).
-- `foundations/` – Plain-language primers on RBAC, data guardrails, and PostgreSQL duties.
-- `playbooks/troubleshoot-auth.md` – Symptom-based fixes when something misbehaves.
-- `reference/raw/` – Original detailed documents, migration notes, and exhaustive matrices.
-- `onboarding/setup/` – SQL bootstrap scripts (kept intact); run them alongside the setup playbooks.
+- **Story Prelude** – `start/welcome.md`, `start/platform-tour.md`, `start/role-stories.md`
+- **Concept Primers** – `foundations/access-control-101.md`, `foundations/data-guardrails-101.md`, `foundations/postgres-for-auth.md`
+- **Troubleshooting** – `playbooks/troubleshoot-auth.md`
+- **Bootstrap SQL** – `onboarding/setup/` (run alongside Steps 4 and 5)
 
 ## Keeping Docs In Sync
 
-- Update the primary path first; ensure each doc’s “Next” pointer stays accurate.
-- Link to reference summaries instead of duplicating tables.
-- When schemas or capabilities change, refresh both the playbooks and the relevant reference sheet.
+- Update the guided path first and verify each “Next” link.
+- Surface new details in the reference summaries; point to `reference/raw/` for exhaustive tables.
+- When schemas or capabilities change, adjust the playbooks and matching reference sheet together.

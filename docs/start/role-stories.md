@@ -1,5 +1,7 @@
 # Role Stories
 
+**Optional Prelude:** After meeting the personas, start the main sequence at `../architecture/overview.md`.
+
 Each platform role is a character with a job to do. Think of the auth system as a high-security museum: every badge opens specific doors, and security cameras log every move. Use these stories to remember who can go where—and why.
 
 | Role | Real-World Persona | What They Must Do | What They Cannot Do |

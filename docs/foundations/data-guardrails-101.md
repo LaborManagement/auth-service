@@ -1,5 +1,7 @@
 # Data Guardrails 101
 
+**Optional Primer:** Use this with `../guides/login-to-data.md` and before following the VPD playbook in `../guides/setup/vpd.md`.
+
 Row-level security (RLS) is how we make sure every request only sees the data it should. Think of it as a hotel elevator controlled by keycards.
 
 ## Hotel Elevator Analogy
