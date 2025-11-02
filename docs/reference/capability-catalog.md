@@ -1,6 +1,6 @@
 # Capability Catalog
 
-**Navigation:** Previous: `role-catalog.md` → Next: `policy-matrix.md`
+**Navigation:** Previous: [Role Catalog](role-catalog.md) → Next: [Policy Matrix](policy-matrix.md)
 
 This catalog explains how capabilities are organised and where to find the full list. Capabilities follow the naming convention `<domain>.<subject>.<action>` and live in the `auth.capability` table.
 
@@ -25,7 +25,7 @@ This keeps the catalogue searchable and self-explanatory.
 
 ## Adding A Capability
 
-- Use the recipe in `guides/extend-access.md`.
+- Use the recipe in [Extend Access Guide](../guides/extend-access.md).
 - Document the new capability’s intent in your migration or change log.
 - Update front-end authorization checks if a UI element depends on it.
 

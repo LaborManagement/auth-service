@@ -1,8 +1,8 @@
 # PostgreSQL Operations Checklist
 
-**Navigation:** Previous: `vpd-checklist.md` → Next: `raw/README.md`
+**Navigation:** Previous: [VPD Checklist](vpd-checklist.md) → Next: [Raw Reference Index](raw/README.md)
 
-Use this checklist when managing the PostgreSQL instance that powers the auth service. It summarises the operational guidance from `reference/raw/POSTGRES/`.
+Use this checklist when managing the PostgreSQL instance that powers the auth service. It summarises the operational guidance from [raw/POSTGRES/](raw/POSTGRES/).
 
 ## Routine Tasks
 

@@ -1,6 +1,6 @@
 # Access Control 101
 
-**Optional Primer:** Read alongside `../guides/login-to-data.md` before you tackle the RBAC setup in `../guides/setup/rbac.md`.
+**Optional Primer:** Read alongside [Journey: Login To Data](../guides/login-to-data.md) before you tackle the RBAC setup in [RBAC Setup Playbook](../guides/setup/rbac.md).
 
 This guide explains role-based access control (RBAC) the way you’d explain it to a friend. No SQL required—just a story about who gets to do what.
 

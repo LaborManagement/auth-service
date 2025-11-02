@@ -1,6 +1,6 @@
 # VPD Setup Playbook
 
-**Navigation:** Previous: `rbac.md` → Next: `../../reference/role-catalog.md`
+**Navigation:** Previous: [RBAC Setup Playbook](rbac.md) → Next: [Role Catalog](../../reference/role-catalog.md)
 
 Follow this guide to enforce row-level security (RLS) so users only see the data they’re entitled to. Think of it as programming an elevator that stops only on authorised floors.
 
@@ -143,5 +143,5 @@ Also test with a board user to confirm expanded access.
 
 ## Next Steps
 
-- Review `../../reference/vpd-checklist.md` for audit-ready checks.
-- If you added new capabilities or endpoints during this process, go back to `rbac.md` to ensure mappings stay in sync.
+- Review [VPD Checklist](../../reference/vpd-checklist.md) for audit-ready checks.
+- If you added new capabilities or endpoints during this process, go back to [RBAC Setup Playbook](rbac.md) to ensure mappings stay in sync.

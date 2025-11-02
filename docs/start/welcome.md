@@ -1,6 +1,6 @@
 # Welcome Aboard
 
-**Optional Prelude:** After this story, begin the guided path at `../architecture/overview.md`.
+**Optional Prelude:** After this story, begin the guided path at [Architecture Overview](../architecture/overview.md).
 
 You’ve joined the team that keeps payments safe. This guide is your first-week companion—no jargon, just the story of how everything fits together and what to read next.
 

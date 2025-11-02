@@ -1,6 +1,6 @@
 # Auth Platform Architecture
 
-**Navigation:** Start here → Next read: `data-map.md`
+**Navigation:** Start here → Next: [Data Map](data-map.md)
 
 This document gives you the birds-eye view of how the auth service keeps payment reconciliation safe. Think of it as the control tower diagram before you dive into the step-by-step flight plan.
 
@@ -90,4 +90,4 @@ sequenceDiagram
 
 ## Up Next
 
-Move on to `data-map.md` for entity relationships, then continue to the technical journey guide for an end-to-end walkthrough.
+Continue to [Data Map](data-map.md) for entity relationships, then proceed to [Journey: Login To Data](../guides/login-to-data.md) for an end-to-end walkthrough.

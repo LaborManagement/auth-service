@@ -1,6 +1,6 @@
 # Platform Tour
 
-**Optional Prelude:** Ready for the detailed journey? Head next to `../architecture/overview.md`.
+**Optional Prelude:** Ready for the detailed journey? Head next to [Architecture Overview](../architecture/overview.md).
 
 This tour explains how the auth service keeps the payment reconciliation platform safe. Imagine a busy transit hub where every passenger, train, and cargo shipment must be checked, routed, and recorded. The auth service is the central control room coordinating those movements.
 

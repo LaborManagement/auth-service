@@ -1,8 +1,8 @@
 # VPD Checklist
 
-**Navigation:** Previous: `policy-matrix.md` → Next: `postgres-operations.md`
+**Navigation:** Previous: [Policy Matrix](policy-matrix.md) → Next: [PostgreSQL Operations Checklist](postgres-operations.md)
 
-Keep this checklist handy when reviewing or troubleshooting row-level security changes. It distills the detailed notes from `reference/raw/VPD/README.md`.
+Keep this checklist handy when reviewing or troubleshooting row-level security changes. It distills the detailed notes from [raw/VPD/README.md](raw/VPD/README.md).
 
 ## Before Deploying
 

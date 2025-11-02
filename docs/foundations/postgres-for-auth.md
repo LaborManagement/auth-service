@@ -1,6 +1,6 @@
 # PostgreSQL For Auth Engineers
 
-**Optional Primer:** Review this before running the setup scripts in `../guides/setup/rbac.md` and `../guides/setup/vpd.md`.
+**Optional Primer:** Review this before running the setup scripts in [RBAC Setup Playbook](../guides/setup/rbac.md) and [VPD Setup Playbook](../guides/setup/vpd.md).
 
 PostgreSQL is more than a database here—it acts like the secure vault governing who can see what. This primer explains the pieces you’ll touch without expecting deep DBA knowledge.
 

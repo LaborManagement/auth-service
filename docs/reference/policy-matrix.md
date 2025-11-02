@@ -1,6 +1,6 @@
 # Policy Matrix
 
-**Navigation:** Previous: `capability-catalog.md` → Next: `vpd-checklist.md`
+**Navigation:** Previous: [Capability Catalog](capability-catalog.md) → Next: [VPD Checklist](vpd-checklist.md)
 
 Policies link roles to capabilities and endpoints. Use this matrix to understand how decisions flow without wading through every SQL script.
 

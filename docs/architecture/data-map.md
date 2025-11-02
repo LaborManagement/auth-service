@@ -1,6 +1,6 @@
 # Data Map & Relationships
 
-**Navigation:** Previous: `overview.md` → Next: `../guide/login-to-data.md`
+**Navigation:** Previous: [Architecture Overview](overview.md) → Next: [Journey: Login To Data](../guides/login-to-data.md)
 
 This guide maps the PostgreSQL tables that power authentication and authorization. Use it when you need to understand how roles, policies, capabilities, and tenant scopes join together.
 
@@ -54,10 +54,10 @@ Every table participates in the decision.
 
 ## Reference Links
 
-- Detailed CSV-friendly exports remain in `../reference/raw/RBAC/`.
-- VPD policy scripts and tests live in `../reference/raw/VPD/`.
-- Onboarding SQL stays in `../onboarding/setup/`.
+- Detailed CSV-friendly exports remain in [reference/raw/RBAC/](../reference/raw/RBAC/).
+- VPD policy scripts and tests live in [reference/raw/VPD/](../reference/raw/VPD/).
+- Onboarding SQL stays in [onboarding/setup/](../onboarding/setup/).
 
 ## Up Next
 
-Proceed to `../guide/login-to-data.md` for a narrative walkthrough from login to data access using real personas.
+Proceed to [Journey: Login To Data](../guides/login-to-data.md) for a narrative walkthrough from login to data access using real personas.

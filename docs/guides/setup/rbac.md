@@ -1,6 +1,6 @@
 # RBAC Setup Playbook
 
-**Navigation:** Previous: `../login-to-data.md` → Next: `vpd.md`
+**Navigation:** Previous: [Journey: Login To Data](../login-to-data.md) → Next: [VPD Setup Playbook](vpd.md)
 
 Follow this sequence whenever you onboard a new tenant or extend permissions. Treat it like wiring a building’s security system—each step unlocks the next one.
 
@@ -155,4 +155,4 @@ If creating service accounts, ensure credentials are stored securely and tokens 
 
 ## Next Steps
 
-Once RBAC is wired, continue to `vpd.md` to configure tenant-level data guardrails.
+Once RBAC is wired, continue to [VPD Setup Playbook](vpd.md) to configure tenant-level data guardrails.

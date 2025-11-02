@@ -1,6 +1,6 @@
 # Journey: Login To Data
 
-**Navigation:** Previous: `../architecture/data-map.md` → Next: `setup/rbac.md`
+**Navigation:** Previous: [Data Map](../architecture/data-map.md) → Next: [RBAC Setup Playbook](setup/rbac.md)
 
 Walk through the entire experience of a user hitting the platform, from login to seeing their data. Meet our three tour guides:
 
@@ -141,4 +141,4 @@ If tenant data is missing or incorrect, RLS may return zero rows, leading to a `
 
 ## Ready To Build?
 
-You now know the journey from login to data access. Continue to `setup/rbac.md` to learn how to create roles, policies, capabilities, endpoints, and UI bindings in the correct order.
+You now know the journey from login to data access. Continue to [RBAC Setup Playbook](setup/rbac.md) to learn how to create roles, policies, capabilities, endpoints, and UI bindings in the correct order.
