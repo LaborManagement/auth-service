@@ -38,7 +38,7 @@ When a user makes a request, PostgreSQL **automatically filters database rows** 
    └─> Context stored in PostgreSQL transaction variable
 
 5. Application queries database
-   └─> SELECT * FROM payment_flow.payments
+   └─> SELECT * FROM <data_schema>.<data_table>
 
 6. PostgreSQL RLS Policy intercepts query
    └─> For each row, checks: auth.can_read_row(board_id, employer_id)
@@ -59,24 +59,25 @@ Every data table has two **tenant key** columns:
 
 | Column | Example | Purpose |
 |--------|---------|---------|
-| `board_id` | 'BRD1', 'BRD2' | Which board owns this data |
-| `employer_id` | 'EMP001', 'EMP002', NULL | Which employer owns this data (NULL = all employers) |
+| `board_id` | '<BOARD_1>', '<BOARD_2>' | Which board owns this data |
+| `employer_id` | '<EMPLOYER_1>', '<EMPLOYER_2>', NULL | Which employer owns this data (NULL = all employers) |
 
 When querying, PostgreSQL checks: *"Is this user allowed to see rows with board_id=X and employer_id=Y?"*
 
 ### Who Can See What?
 
 ```
+```
 ┌──────────────────────────────────────────────────────────────┐
 │                    Permission Matrix                         │
 ├──────────────────────────────────────────────────────────────┤
 │ User | Role | Board | Employer | can_read | can_write       │
 ├──────────────────────────────────────────────────────────────┤
-│ 1    | ADMIN    | BRD1 | NULL     | ✓ | ✓ (sees ALL data)   │
-│ 2    | EMPLOYER | BRD1 | EMP001   | ✓ | ✓ (sees EMP001 only)│
-│ 3    | EMPLOYER | BRD1 | EMP002   | ✓ | ✓ (sees EMP002 only)│
-│ 4    | WORKER   | BRD1 | NULL     | ✓ | ✗ (read-only)      │
-└──────────────────────────────────────────────────────────────┘
+│ 1    | ADMIN    | <BOARD_1> | NULL     | ✓ | ✓ (sees ALL data)   │
+│ 2    | EMPLOYER | <BOARD_1> | <EMPLOYER_1>   | ✓ | ✓ (sees <EMPLOYER_1> only)│
+│ 3    | EMPLOYER | <BOARD_1> | <EMPLOYER_2>   | ✓ | ✓ (sees <EMPLOYER_2> only)│
+│ 4    | WORKER   | <BOARD_1> | NULL     | ✓ | ✗ (read-only) │
+```
 ```
 
 ---
@@ -102,17 +103,15 @@ When querying, PostgreSQL checks: *"Is this user allowed to see rows with board_
 | **RLS Policies** | 20+ data tables | Automatic row filtering on SELECT/INSERT/UPDATE/DELETE |
 | **Java Filter** | Spring Security | `RLSContextFilter` that sets user context on each request |
 
-### Tables That Get Modified (21 Total)
+### Tables That Get Modified
 
-**payment_flow schema (11 tables):**
-- board_receipts, employer_payment_receipts, board_master, employer_master, employer_toli_relation, toli_master, uploaded_files, worker_payment_receipts, worker_payments, worker_uploaded_data, payment_requests
+**Data Schemas (~19 tables):**
+- Multiple tables across business logic schemas will receive `board_id` and `employer_id` columns
+- Refer to migration script: `02-add-tenant-keys.sql` for exact table list
 
-**reconciliation schema (8 tables):**
-- import_run, statement_file, statement_transaction, statement_balance, raw_statement_line, import_error, file_processing_queue, bank_account
-
-**auth schema (2 tables modified/created):**
-- users (add board_id, employer_id columns)
-- user_tenant_acl (new table - the permission matrix)
+**Auth Schema (2 tables modified/created):**
+- `auth.users` - Extended with tenant assignment columns
+- `auth.user_tenant_acl` - New table created for permission matrix
 
 ---
 
@@ -139,13 +138,13 @@ Creates 4 database roles that applications will use. Each role has `NOBYPASSRLS`
 **Execute:**
 ```bash
 # Backup first
-pg_dump -U postgres -d labormanagement > backup_phase1.sql
+pg_dump -U postgres -d <database-name> > backup_phase1.sql
 
 # Run as superuser
-psql -U postgres -d labormanagement -f infra/db-migration/01-postgres-roles-setup.sql
+psql -U postgres -d <database-name> -f infra/db-migration/01-postgres-roles-setup.sql
 
 # Verify
-psql -U postgres -d labormanagement -c "\du"
+psql -U postgres -d <database-name> -c "\du"
 ```
 
 **Expected Output:**
@@ -160,35 +159,23 @@ data_ops                   | Superuser, Bypass RLS
 
 **Update Application Configs:**
 
-Update `auth-service/src/main/resources/application-dev.yml`:
+Update service configuration files with new database role credentials:
+
 ```yaml
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/labormanagement
-    username: app_auth              # ← Changed from postgres
-    password: your-secure-password
+    url: jdbc:postgresql://localhost:5432/<database-name>
+    username: <app-specific-role>     # ← Use appropriate role for this service
+    password: <secure-password>
     hikari:
-      auto-commit: true             # ← CRITICAL for RLS
+      auto-commit: true               # ← CRITICAL for RLS
       maximum-pool-size: 20
 ```
 
-Update `payment-flow-service/src/main/resources/application-dev.yml`:
-```yaml
-spring:
-  datasource:
-    username: app_payment_flow      # ← Changed
-    hikari:
-      auto-commit: true             # ← CRITICAL
-```
-
-Update `reconciliation-service/src/main/resources/application-dev.yml`:
-```yaml
-spring:
-  datasource:
-    username: app_reconciliation    # ← Changed
-    hikari:
-      auto-commit: true             # ← CRITICAL
-```
+**Roles to use per service:**
+- `auth-service` → `app_auth`
+- `payment-flow-service` → `app_payment_flow`
+- `reconciliation-service` → `app_reconciliation`
 
 **Test Phase 1:**
 ```bash
@@ -206,57 +193,37 @@ spring:
 **File**: `infra/db-migration/02-add-tenant-keys.sql`
 
 **What It Does:**
-Adds `board_id` and `employer_id` columns to all 21 data tables. Creates composite indexes for performance.
+Adds `board_id` and `employer_id` columns to all data tables. Creates composite indexes for performance.
 
 **Execute:**
 ```bash
-pg_dump -U postgres -d labormanagement > backup_phase2_pre.sql
+pg_dump -U postgres -d <database-name> > backup_phase2_pre.sql
 
-psql -U postgres -d labormanagement -f infra/db-migration/02-add-tenant-keys.sql
+psql -U postgres -d <database-name> -f infra/db-migration/02-add-tenant-keys.sql
 
 # Verify columns added
-psql -U postgres -d labormanagement -c \
+psql -U postgres -d <database-name> -c \
   "SELECT COUNT(*) FROM information_schema.columns 
-   WHERE table_schema IN ('payment_flow', 'reconciliation') 
-   AND column_name IN ('board_id', 'employer_id');"
-# Expected: 42 rows (21 tables × 2 columns)
+   WHERE column_name IN ('board_id', 'employer_id');"
 
 # Verify indexes created  
-psql -U postgres -d labormanagement -c \
+psql -U postgres -d <database-name> -c \
   "SELECT COUNT(*) FROM pg_indexes WHERE indexname LIKE '%board_employer%';"
-# Expected: 21 rows
 ```
 
 **⚠️ CRITICAL MANUAL STEP: Backfill Tenant Keys**
 
-After Phase 2, all rows have NULL values. You MUST populate them:
+After Phase 2, all rows have NULL values. You MUST populate them with appropriate values:
 
 ```sql
--- For single-board scenario (recommended for testing)
-UPDATE payment_flow.board_receipts SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE payment_flow.employer_payment_receipts SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE payment_flow.board_master SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE payment_flow.employer_master SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE payment_flow.employer_toli_relation SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE payment_flow.toli_master SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE payment_flow.uploaded_files SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE payment_flow.worker_payment_receipts SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE payment_flow.worker_payments SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE payment_flow.worker_uploaded_data SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE payment_flow.payment_requests SET board_id = 'BRD1' WHERE board_id IS NULL;
+-- Example: Set all rows to default board value
+UPDATE <schema>.<table> SET board_id = '<BOARD_VALUE>' WHERE board_id IS NULL;
 
--- Same for reconciliation schema
-UPDATE reconciliation.import_run SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE reconciliation.statement_file SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE reconciliation.statement_transaction SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE reconciliation.statement_balance SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE reconciliation.raw_statement_line SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE reconciliation.import_error SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE reconciliation.file_processing_queue SET board_id = 'BRD1' WHERE board_id IS NULL;
-UPDATE reconciliation.bank_account SET board_id = 'BRD1' WHERE board_id IS NULL;
+-- Repeat for all affected tables
+-- Refer to migration script for complete list of tables
 
 -- Verify backfill
-SELECT COUNT(*) FROM payment_flow.payments WHERE board_id IS NULL;
+SELECT COUNT(*) FROM <schema>.<table> WHERE board_id IS NULL;
 -- Should return: 0
 ```
 
@@ -275,35 +242,36 @@ Creates the `auth.user_tenant_acl` table - the permission matrix that controls w
 
 **Execute:**
 ```bash
-pg_dump -U postgres -d labormanagement > backup_phase3_pre.sql
+pg_dump -U postgres -d <database-name> > backup_phase3_pre.sql
 
-psql -U postgres -d labormanagement -f infra/db-migration/03-create-acl-projection.sql
+psql -U postgres -d <database-name> -f infra/db-migration/03-create-acl-projection.sql
 
 # Verify table created
-psql -U postgres -d labormanagement -c "SELECT * FROM auth.user_tenant_acl LIMIT 5;"
+psql -U postgres -d <database-name> -c "SELECT * FROM auth.user_tenant_acl LIMIT 5;"
 
 # Check indexes
-psql -U postgres -d labormanagement -c \
+psql -U postgres -d <database-name> -c \
   "SELECT indexname FROM pg_indexes WHERE tablename = 'user_tenant_acl';"
 ```
 
 **⚠️ CRITICAL MANUAL STEP: Populate ACL Table**
 
-Create ACL entries based on your users and their roles:
+Create ACL entries based on your users and their roles. The script provides a template - adjust based on your actual user role mappings:
 
 ```sql
 -- Insert ACL entries for all enabled users
+-- Adjust the role-to-permission mapping as per your business logic
 INSERT INTO auth.user_tenant_acl (user_id, board_id, employer_id, can_read, can_write)
 SELECT 
-  u.id,                              -- user_id from auth.users
-  COALESCE(u.board_id, 'BRD1'),     -- assign board
-  u.employer_id,                     -- NULL = access all employers on board
+  u.id,
+  u.board_id,
+  u.employer_id,
   CASE 
-    WHEN u.role IN ('ADMIN', 'EMPLOYER', 'USER', 'WORKER') THEN true
+    WHEN u.role IN (<list-of-read-enabled-roles>) THEN true
     ELSE false
   END as can_read,
   CASE 
-    WHEN u.role IN ('ADMIN', 'EMPLOYER') THEN true
+    WHEN u.role IN (<list-of-write-enabled-roles>) THEN true
     ELSE false
   END as can_write
 FROM auth.users u
@@ -312,14 +280,13 @@ ON CONFLICT (user_id, board_id, employer_id) DO NOTHING;
 
 -- Verify
 SELECT COUNT(*) FROM auth.user_tenant_acl;
-SELECT * FROM auth.user_tenant_acl ORDER BY user_id, board_id;
 ```
 
-**Permission Logic:**
-- **ADMIN**: can_read=true, can_write=true (full access)
-- **EMPLOYER**: can_read=true, can_write=true (employer data access)
-- **WORKER/USER**: can_read=true, can_write=false (read-only)
-- **DISABLED**: Remove from ACL (no access)
+**Permission Logic (customize per requirements):**
+- **Admin roles**: can_read=true, can_write=true (full access)
+- **Data management roles**: can_read=true, can_write=true (data access)
+- **View-only roles**: can_read=true, can_write=false (read-only)
+- **Disabled/revoked**: Remove from ACL (no access)
 
 ✅ **Phase 3 Complete** - ACL populated with user permissions
 
@@ -330,21 +297,21 @@ SELECT * FROM auth.user_tenant_acl ORDER BY user_id, board_id;
 **File**: `infra/db-migration/05-create-sec-schema.sql`
 
 **What It Does:**
-Creates 5 PostgreSQL functions in the `auth` schema that handle user context and permission checking.
+Creates PostgreSQL functions in the `auth` schema that handle user context and permission checking.
 
 **Execute:**
 ```bash
-psql -U postgres -d labormanagement -f infra/db-migration/05-create-sec-schema.sql
+psql -U postgres -d <database-name> -f infra/db-migration/05-create-sec-schema.sql
 
 # Verify functions exist
-psql -U postgres -d labormanagement -c \
+psql -U postgres -d <database-name> -c \
   "SELECT proname FROM pg_proc 
    WHERE pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'auth') 
    AND proname IN ('set_user_context', 'get_user_context', 'can_read_row', 'can_write_row');"
 
 # Test functions
-psql -U postgres -d labormanagement -c \
-  "SELECT auth.set_user_context('2');
+psql -U postgres -d <database-name> -c \
+  "SELECT auth.set_user_context('<test-user-id>');
    SELECT auth.get_user_context();"
 ```
 
@@ -371,35 +338,32 @@ Automatically discovers all tables with tenant keys, enables RLS, and creates fi
 
 **Execute:**
 ```bash
-pg_dump -U postgres -d labormanagement > backup_phase5_pre.sql
+pg_dump -U postgres -d <database-name> > backup_phase5_pre.sql
 
-psql -U postgres -d labormanagement -f infra/db-migration/06-generic-policy-applier.sql
+psql -U postgres -d <database-name> -f infra/db-migration/06-generic-policy-applier.sql
 
 # Verify RLS enabled on tables
-psql -U postgres -d labormanagement -c \
+psql -U postgres -d <database-name> -c \
   "SELECT COUNT(*) FROM pg_tables 
-   WHERE schemaname IN ('payment_flow', 'reconciliation') AND rowsecurity = true;"
-# Expected: 20+
+   WHERE rowsecurity = true;"
 
 # Verify policies created
-psql -U postgres -d labormanagement -c \
-  "SELECT COUNT(*) FROM pg_policies 
-   WHERE schemaname IN ('payment_flow', 'reconciliation');"
-# Expected: 40+ (2 policies per table)
+psql -U postgres -d <database-name> -c \
+  "SELECT COUNT(*) FROM pg_policies;"
 ```
 
 **Test RLS is Working:**
 
 ```bash
 # Set user context
-psql -U postgres -d labormanagement -c \
-  "SELECT auth.set_user_context('2');
-   SELECT COUNT(*) FROM payment_flow.payments;"
+psql -U postgres -d <database-name> -c \
+  "SELECT auth.set_user_context('<test-user-id>');
+   SELECT COUNT(*) FROM <schema>.<table>;"
 
 # Switch user context
-psql -U postgres -d labormanagement -c \
-  "SELECT auth.set_user_context('4');
-   SELECT COUNT(*) FROM payment_flow.payments;"
+psql -U postgres -d <database-name> -c \
+  "SELECT auth.set_user_context('<different-user-id>');
+   SELECT COUNT(*) FROM <schema>.<table>;"
 
 # Different counts = RLS is working!
 ```
@@ -410,7 +374,7 @@ psql -U postgres -d labormanagement -c \
 
 ### Phase 6: Java Integration (Spring Security)
 
-**Location**: `shared-lib/src/main/java/com/lbe/shared/security/`
+**Location**: Shared security library - `RLSContextManager.java` and `RLSContextFilter.java`
 
 Already created:
 - `RLSContextManager.java` - manages database context
@@ -418,7 +382,7 @@ Already created:
 
 **Register Filter in Each Service:**
 
-Update `auth-service/src/main/java/.../config/SecurityConfig.java`:
+Update the Spring Security configuration in each service to register the RLSContextFilter:
 
 ```java
 import com.lbe.shared.security.RLSContextFilter;
@@ -431,7 +395,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+            YourJwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
         
         http
             .csrf().disable()
@@ -441,14 +405,16 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             .and()
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(new RLSContextFilter(), JwtAuthenticationFilter.class);  // ← Add this
+            .addFilterAfter(new RLSContextFilter(), YourJwtAuthenticationFilter.class);  // ← Add this
         
         return http.build();
     }
 }
 ```
 
-Repeat for `payment-flow-service` and `reconciliation-service`.
+**Apply to all services:**
+- Repeat the same pattern for each microservice
+- Ensure filter is registered after JWT authentication but before business logic
 
 **Test Integration:**
 
@@ -456,14 +422,10 @@ Repeat for `payment-flow-service` and `reconciliation-service`.
 # Start services
 ./mvn spring-boot:run
 
-# Check logs for "RLS context set" message
+# Check logs for RLS context initialization
 tail -f logs/application.log | grep -i "rls"
 
-# Make authenticated request
-curl -H "Authorization: Bearer <JWT_TOKEN>" http://localhost:8080/api/payments
-
-# Verify filtering works
-# Different users should see different data
+# Make authenticated request and verify different users see different data
 ```
 
 ✅ **Phase 6 Complete** - Java filter registered and context being set
@@ -513,7 +475,7 @@ Next request: new context set (if different user)
 
 ```
 employer_id = NULL → Row accessible to ALL employers for this board
-employer_id = 'EMP001' → Row accessible ONLY to users with EMP001 access
+employer_id = '<EMPLOYER_ID>' → Row accessible ONLY to users with that employer access
 
 Policy logic:
 WHERE user_id = current_user
@@ -546,19 +508,19 @@ WHERE user_id = current_user
 ### 6. Multi-User Scenario
 
 ```sql
--- Example: 3 users, different permissions
+-- Example: 3 users with different permission levels
 
--- User 1 (admin) - sees all
+-- User 1 (admin) - sees all data
 INSERT INTO auth.user_tenant_acl VALUES 
-  (1, 'BRD1', NULL, true, true);
+  (1, '<BOARD_1>', NULL, true, true);
 
--- User 2 (employer1) - sees only EMP001 data
+-- User 2 (employer_1) - sees only <EMPLOYER_1> data
 INSERT INTO auth.user_tenant_acl VALUES 
-  (2, 'BRD1', 'EMP001', true, true);
+  (2, '<BOARD_1>', '<EMPLOYER_1>', true, true);
 
--- User 3 (employer2) - sees only EMP002 data
+-- User 3 (employer_2) - sees only <EMPLOYER_2> data
 INSERT INTO auth.user_tenant_acl VALUES 
-  (3, 'BRD1', 'EMP002', true, true);
+  (3, '<BOARD_1>', '<EMPLOYER_2>', true, true);
 
 -- Result: Each user sees different filtered view automatically
 ```
@@ -570,13 +532,13 @@ INSERT INTO auth.user_tenant_acl VALUES
 ### Issue: "Role does not exist"
 
 ```
-Error: role "app_auth" does not exist
+Error: role "app_*" does not exist
 ```
 
 **Fix:**
 ```bash
 # Run Phase 1
-psql -U postgres -d labormanagement -f infra/db-migration/01-postgres-roles-setup.sql
+psql -U postgres -d <database-name> -f infra/db-migration/01-postgres-roles-setup.sql
 ```
 
 ### Issue: "Column board_id does not exist"
@@ -588,7 +550,7 @@ Error: column "board_id" does not exist
 **Fix:**
 ```bash
 # Run Phase 2
-psql -U postgres -d labormanagement -f infra/db-migration/02-add-tenant-keys.sql
+psql -U postgres -d <database-name> -f infra/db-migration/02-add-tenant-keys.sql
 # Then backfill values (see Phase 2)
 ```
 
@@ -602,12 +564,13 @@ psql -U postgres -d labormanagement -f infra/db-migration/02-add-tenant-keys.sql
 SELECT COUNT(*) FROM auth.user_tenant_acl;
 
 -- If 0, populate it (Phase 3)
+-- Use appropriate role-to-permission mapping for your system
 INSERT INTO auth.user_tenant_acl (user_id, board_id, employer_id, can_read, can_write)
-VALUES (2, 'BRD1', NULL, true, true);
+VALUES (<user-id>, '<board-value>', '<employer-value>', true, true);
 
 -- Verify
-SELECT auth.set_user_context('2');
-SELECT COUNT(*) FROM payment_flow.payments;
+SELECT auth.set_user_context('<user-id>');
+SELECT COUNT(*) FROM <schema>.<table>;
 -- Should now return rows
 ```
 
@@ -617,18 +580,18 @@ SELECT COUNT(*) FROM payment_flow.payments;
 ```sql
 -- 1. Is RLS enabled?
 SELECT rowsecurity FROM pg_tables 
-WHERE schemaname='payment_flow' AND tablename='payments';
+WHERE schemaname='<schema>' AND tablename='<table>';
 -- Should be: true
 
 -- 2. Do policies exist?
 SELECT policyname FROM pg_policies 
-WHERE schemaname='payment_flow' AND tablename='payments';
--- Should show: payments_std_read, payments_std_write
+WHERE schemaname='<schema>' AND tablename='<table>';
+-- Should show: read and write policies
 
 -- 3. Is context being set?
-SELECT auth.set_user_context('2');
+SELECT auth.set_user_context('<user-id>');
 SELECT auth.get_user_context();
--- Should return: 2
+-- Should return: <user-id>
 ```
 
 ### Issue: "Function auth.set_user_context not found"
@@ -636,10 +599,10 @@ SELECT auth.get_user_context();
 **Fix:**
 ```bash
 # Run Phase 4
-psql -U postgres -d labormanagement -f infra/db-migration/05-create-sec-schema.sql
+psql -U postgres -d <database-name> -f infra/db-migration/05-create-sec-schema.sql
 
 # Test
-psql -U postgres -d labormanagement -c "SELECT auth.set_user_context('2');"
+psql -U postgres -d <database-name> -c "SELECT auth.set_user_context('<test-id>');"
 ```
 
 ### Issue: "RLSContextFilter not setting context in logs"
@@ -647,10 +610,10 @@ psql -U postgres -d labormanagement -c "SELECT auth.set_user_context('2');"
 **Check:**
 ```bash
 # 1. Is filter registered in SecurityConfig?
-grep -r "RLSContextFilter" */src/main/java/*/config/
+grep -r "RLSContextFilter" <service>/src/main/java/
 
-# 2. Check logs
-grep -i "RLS context" logs/application.log
+# 2. Check logs for context initialization
+grep -i "rls" <service>/logs/application.log
 
 # 3. If not found, add to SecurityConfig
 http.addFilterAfter(new RLSContextFilter(), JwtAuthenticationFilter.class);
@@ -664,43 +627,43 @@ http.addFilterAfter(new RLSContextFilter(), JwtAuthenticationFilter.class);
 
 ```bash
 # 1. Set user context
-psql -U postgres -d labormanagement -c \
-  "SELECT auth.set_user_context('2');"
+psql -U postgres -d <database-name> -c \
+  "SELECT auth.set_user_context('<user-id>');"
 
 # 2. Query data
-psql -U postgres -d labormanagement -c \
-  "SELECT COUNT(*) FROM payment_flow.payments;"
+psql -U postgres -d <database-name> -c \
+  "SELECT COUNT(*) FROM <schema>.<table>;"
 
 # 3. Check with different user
-psql -U postgres -d labormanagement -c \
-  "SELECT auth.set_user_context('4');
-   SELECT COUNT(*) FROM payment_flow.payments;"
+psql -U postgres -d <database-name> -c \
+  "SELECT auth.set_user_context('<different-user-id>');
+   SELECT COUNT(*) FROM <schema>.<table>;"
 
 # Different counts = RLS working!
 ```
 
 ### Full Validation Checklist
 
-- [ ] Phase 1: All 4 roles created (`\du` shows them)
-- [ ] Phase 2: All 21 tables have board_id/employer_id columns
+- [ ] Phase 1: All application roles created (verify with `\du`)
+- [ ] Phase 2: All tables have board_id/employer_id columns
 - [ ] Phase 2: All columns populated (no NULLs)
 - [ ] Phase 3: ACL table exists and has entries
 - [ ] Phase 4: RLS functions created and executable
-- [ ] Phase 5: RLS enabled on 20+ tables
+- [ ] Phase 5: RLS enabled on tables (verify with pg_tables)
 - [ ] Phase 5: Policies created for SELECT/INSERT/UPDATE/DELETE
 - [ ] Phase 5: Filtering works (different row counts per user)
 - [ ] Phase 6: RLSContextFilter registered in SecurityConfig
-- [ ] Phase 6: Logs show "RLS context set for user: X"
+- [ ] Phase 6: Logs show context initialization
 - [ ] Phase 6: Different users see different data via API
 
 ### Performance Test
 
 ```bash
 # Query with EXPLAIN to verify index usage
-psql -U postgres -d labormanagement -c \
-  "SET role app_payment_flow;
-   SELECT auth.set_user_context('2');
-   EXPLAIN (ANALYZE) SELECT * FROM payment_flow.payments LIMIT 10;"
+psql -U postgres -d <database-name> -c \
+  "SET role <app-role>;
+   SELECT auth.set_user_context('<user-id>');
+   EXPLAIN (ANALYZE) SELECT * FROM <schema>.<table> LIMIT 10;"
 
 # Look for "Index Scan" or "Index Only Scan" (good)
 # Look for "Seq Scan" with Filter (acceptable)
@@ -714,24 +677,24 @@ psql -U postgres -d labormanagement -c \
 
 ```bash
 # Check roles
-psql -U postgres -d labormanagement -c "\du"
+psql -U postgres -d <database-name> -c "\du"
 
 # Check columns added
-psql -U postgres -d labormanagement -c \
+psql -U postgres -d <database-name> -c \
   "SELECT COUNT(*) FROM information_schema.columns 
    WHERE column_name IN ('board_id', 'employer_id');"
 
 # Check ACL entries
-psql -U postgres -d labormanagement -c \
+psql -U postgres -d <database-name> -c \
   "SELECT COUNT(*) FROM auth.user_tenant_acl;"
 
 # Check RLS enabled
-psql -U postgres -d labormanagement -c \
+psql -U postgres -d <database-name> -c \
   "SELECT COUNT(*) FROM pg_tables 
    WHERE rowsecurity = true;"
 
 # Check policies
-psql -U postgres -d labormanagement -c \
+psql -U postgres -d <database-name> -c \
   "SELECT COUNT(*) FROM pg_policies;"
 ```
 
@@ -739,47 +702,47 @@ psql -U postgres -d labormanagement -c \
 
 ```bash
 # Set user context
-psql -U postgres -d labormanagement -c \
-  "SELECT auth.set_user_context('2');"
+psql -U postgres -d <database-name> -c \
+  "SELECT auth.set_user_context('<user-id>');"
 
 # See accessible tenants
-psql -U postgres -d labormanagement -c \
+psql -U postgres -d <database-name> -c \
   "SELECT * FROM auth.user_accessible_tenants();"
 
 # Test read permission
-psql -U postgres -d labormanagement -c \
-  "SELECT auth.can_read_row('BRD1', NULL);"
+psql -U postgres -d <database-name> -c \
+  "SELECT auth.can_read_row('<board-value>', '<employer-value>');"
 
 # Test write permission
-psql -U postgres -d labormanagement -c \
-  "SELECT auth.can_write_row('BRD1', NULL);"
+psql -U postgres -d <database-name> -c \
+  "SELECT auth.can_write_row('<board-value>', '<employer-value>');"
 ```
 
 ### Backup Commands
 
 ```bash
 # Before Phase 1
-pg_dump -U postgres -d labormanagement > backup_phase1_pre.sql
+pg_dump -U postgres -d <database-name> > backup_phase1_pre.sql
 
 # Before Phase 2
-pg_dump -U postgres -d labormanagement > backup_phase2_pre.sql
+pg_dump -U postgres -d <database-name> > backup_phase2_pre.sql
 
 # Before Phase 5 (RLS policies - critical)
-pg_dump -U postgres -d labormanagement > backup_phase5_pre.sql
+pg_dump -U postgres -d <database-name> > backup_phase5_pre.sql
 
 # Full backup for safety
-pg_dump -U postgres -d labormanagement --format=custom -f backup_full.bak
+pg_dump -U postgres -d <database-name> --format=custom -f backup_full.bak
 ```
 
 ### Rollback (if needed)
 
 ```bash
-# Drop policies
-DROP POLICY IF EXISTS payments_std_read ON payment_flow.payments;
-DROP POLICY IF EXISTS payments_std_write ON payment_flow.payments;
+# Drop policies on a specific table
+DROP POLICY IF EXISTS <table>_std_read ON <schema>.<table>;
+DROP POLICY IF EXISTS <table>_std_write ON <schema>.<table>;
 
-# Disable RLS
-ALTER TABLE payment_flow.payments DISABLE ROW LEVEL SECURITY;
+# Disable RLS on a specific table
+ALTER TABLE <schema>.<table> DISABLE ROW LEVEL SECURITY;
 
 # Drop functions
 DROP FUNCTION IF EXISTS auth.set_user_context(TEXT);
@@ -789,7 +752,7 @@ DROP FUNCTION IF EXISTS auth.can_read_row(VARCHAR, VARCHAR);
 DROP TABLE IF EXISTS auth.user_tenant_acl;
 
 # Restore from backup
-pg_restore -U postgres -d labormanagement backup_full.bak
+pg_restore -U postgres -d <database-name> backup_full.bak
 ```
 
 ---
