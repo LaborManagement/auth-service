@@ -30,6 +30,7 @@ flowchart TD
 
 Policies bundle capabilities and tie an endpoint to a set of roles.
 
+**Via SQL:**
 ```sql
 -- Insert a policy if it doesn't exist
 INSERT INTO auth.policy (name, description)
@@ -37,8 +38,20 @@ VALUES ('EMPLOYER_POLICY', 'Employer actions for payment reconciliation')
 ON CONFLICT (name) DO NOTHING;
 ```
 
+**Via API (UI):**
+```http
+POST /api/admin/policies
+Content-Type: application/json
+
+{
+  "name": "EMPLOYER_POLICY",
+  "description": "Employer actions for payment reconciliation"
+}
+```
+
 Link the policy to roles:
 
+**Via SQL:**
 ```sql
 INSERT INTO auth.role_policy (role_id, policy_id)
 SELECT r.id, p.id
@@ -48,18 +61,42 @@ WHERE r.name IN ('EMPLOYER', 'TEST_USER')
 ON CONFLICT (role_id, policy_id) DO NOTHING;
 ```
 
+**Via API (UI):**
+```http
+POST /api/admin/policies/{policyId}/roles
+Content-Type: application/json
+
+{
+  "roleIds": [2, 3]
+}
+```
+(where `roleIds` correspond to EMPLOYER and TEST_USER roles)
+
 ## 3. Define Capabilities
 
 Use the `<domain>.<subject>.<action>` naming convention.
 
+**Via SQL:**
 ```sql
 INSERT INTO auth.capability (name, description)
 VALUES ('payment.ledger.download', 'Download employer payment ledger CSV')
 ON CONFLICT (name) DO NOTHING;
 ```
 
+**Via API (UI):**
+```http
+POST /api/admin/capabilities
+Content-Type: application/json
+
+{
+  "name": "payment.ledger.download",
+  "description": "Download employer payment ledger CSV"
+}
+```
+
 Map capabilities to the policy:
 
+**Via SQL:**
 ```sql
 INSERT INTO auth.policy_capability (policy_id, capability_id)
 SELECT p.id, c.id
@@ -69,16 +106,41 @@ WHERE p.name = 'EMPLOYER_POLICY'
 ON CONFLICT (policy_id, capability_id) DO NOTHING;
 ```
 
+**Via API (UI):**
+```http
+POST /api/admin/policies/{policyId}/capabilities
+Content-Type: application/json
+
+{
+  "capabilityIds": [12]
+}
+```
+(where `capabilityIds` is the ID of the `payment.ledger.download` capability)
+
 ## 4. Register Endpoints
 
+**Via SQL:**
 ```sql
 INSERT INTO auth.endpoint (method, path, label)
 VALUES ('GET', '/api/employer/payment-ledger', 'Download employer payment ledger')
 ON CONFLICT (method, path) DO NOTHING;
 ```
 
+**Via API (UI):**
+```http
+POST /api/admin/endpoints
+Content-Type: application/json
+
+{
+  "method": "GET",
+  "path": "/api/employer/payment-ledger",
+  "label": "Download employer payment ledger"
+}
+```
+
 Bind the endpoint to the policy:
 
+**Via SQL:**
 ```sql
 INSERT INTO auth.endpoint_policy (endpoint_id, policy_id)
 SELECT e.id, p.id
@@ -89,16 +151,20 @@ WHERE e.method = 'GET'
 ON CONFLICT (endpoint_id, policy_id) DO NOTHING;
 ```
 
-Annotate the controller:
+**Via API (UI):**
+```http
+POST /api/admin/endpoints/{endpointId}/policies
+Content-Type: application/json
 
-```java
-@GetMapping("/api/employer/payment-ledger")
-@PreAuthorize("hasAuthority('payment.ledger.download')")
-public ResponseEntity<Resource> downloadLedger(...) { ... }
+{
+  "policyIds": [5]
+}
 ```
+(where `endpointId` is the GET /api/employer/payment-ledger endpoint ID and `policyIds` contains EMPLOYER_POLICY ID)
 
 ## 5. Wire UI Pages & Actions
 
+**Via SQL:**
 ```sql
 -- Page visibility
 INSERT INTO auth.ui_page (code, description)
@@ -125,10 +191,54 @@ WHERE a.code = 'EMPLOYER_LEDGER_DOWNLOAD'
 ON CONFLICT (action_id, capability_id) DO NOTHING;
 ```
 
+**Via API (UI):**
+```http
+-- Create UI page
+POST /api/admin/ui-pages
+Content-Type: application/json
+
+{
+  "code": "EMPLOYER_DASHBOARD",
+  "description": "Employer overview dashboard"
+}
+```
+
+```http
+-- Link capability to page
+POST /api/admin/ui-pages/{pageId}/capabilities
+Content-Type: application/json
+
+{
+  "capabilityIds": [12]
+}
+```
+
+```http
+-- Create UI action
+POST /api/admin/ui-actions
+Content-Type: application/json
+
+{
+  "code": "EMPLOYER_LEDGER_DOWNLOAD",
+  "description": "Download ledger button"
+}
+```
+
+```http
+-- Link capability to action
+POST /api/admin/ui-actions/{actionId}/capabilities
+Content-Type: application/json
+
+{
+  "capabilityIds": [12]
+}
+```
+
 Front-end code should hide controls unless the capability appears in `/api/me/authorizations`.
 
 ## 6. Assign Roles To Users
 
+**Via SQL:**
 ```sql
 INSERT INTO auth.user_role (user_id, role_id)
 SELECT u.id, r.id
@@ -137,6 +247,17 @@ WHERE u.username = 'employer.demo'
   AND r.name = 'EMPLOYER'
 ON CONFLICT (user_id, role_id) DO NOTHING;
 ```
+
+**Via API (UI):**
+```http
+POST /api/admin/users/{userId}/roles
+Content-Type: application/json
+
+{
+  "roleIds": [2]
+}
+```
+(where `userId` is the ID of employer.demo user and `roleIds` contains EMPLOYER role ID)
 
 If creating service accounts, ensure credentials are stored securely and tokens carry the correct audience.
 
