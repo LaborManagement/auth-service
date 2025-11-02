@@ -90,4 +90,12 @@ sequenceDiagram
 
 ## Up Next
 
-Continue to [Data Map](data-map.md) for entity relationships, then proceed to [Journey: Login To Data](../guides/login-to-data.md) for an end-to-end walkthrough.
+Continue to [Data Map](data-map.md) for entity relationships. Then explore these visual guides:
+
+- **[Request Lifecycle Flowchart](request-lifecycle.md)** – See how requests flow through decision points
+- **[Policy Binding Relationships](policy-binding.md)** – Understand how policies, capabilities, and endpoints connect
+- **[Common Permission Patterns](permission-patterns.md)** – Learn real-world setup patterns
+
+Finally, proceed to [Journey: Login To Data](../guides/login-to-data.md) for an end-to-end walkthrough.
+
+````
