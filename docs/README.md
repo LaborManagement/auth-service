@@ -1,42 +1,36 @@
-# Auth Service Documentation
+# Auth Service Knowledge Base
 
-Use this index to find the right guide quickly. Files listed below already contain the detailed instructions—no extra summaries here.
+Welcome to the reworked docs hub. Everything here is rewritten for newcomers who want to understand the “why” before the “how”. Follow the path below to build context, wire the platform into your project, and keep the guardrails sharp.
 
-## Folder Guide
+## Choose Your Adventure
 
-### ONBOARDING
-- `ONBOARDING/README.md` – orientation checklist and glossary
-- `ONBOARDING/SETUP_GUIDE.md` – local environment and service bootstrap
-- `ONBOARDING/ARCHITECTURE.md` – platform and communication overview
-- `ONBOARDING/ROLES.md` – business personas and ownership
-- `ONBOARDING/setup/` – ordered SQL bootstrap scripts with a `README.md`
+- **Just joined?** Start with `start/welcome.md` for a narrated first week, then take the `start/platform-tour.md` walkthrough to meet every moving part.
+- **Need plain-language concepts?** Read the `foundations/` guides. They explain RBAC, data guardrails, and PostgreSQL roles with everyday metaphors.
+- **Ready to build something?** Use the `guides/` playbooks. They connect the concepts to hands-on steps like wiring a new role or checking permissions.
+- **Stuck or debugging?** Jump into `playbooks/troubleshoot-auth.md` for symptom-based fixes.
+- **Looking for hard data?** The curated summaries live in `reference/`. Legacy deep dives remain in `reference/raw/` when you need full tables or historical notes.
 
-### RBAC
-- `RBAC/README.md` – RBAC scope, how the docs are organised, and quick start tasks
-- `RBAC/ARCHITECTURE.md` – service-level auth flow and integration notes
-- `RBAC/SETUP_GUIDE.md` – database and service configuration steps
-- `RBAC/ROLES.md` – condensed permission reference per platform role
-- `RBAC/DEFINITIONS/` – UI page catalogue and capability naming
-- `RBAC/MAPPINGS/` – policy-to-capability and endpoint mappings
-- `RBAC/testing.md` / `RBAC/troubleshoot.md` – verification and issue playbooks
-- `RBAC/setup/` – utility SQL (currently `bootstrap_user_seed.sql`)
+## Map Of The Folder
 
-### VPD
-- `VPD/README.md` – row-level security model, setup checkpoints, and testing plan
-- `VPD/testing/` – SQL snippets to validate RLS behaviour
+| Folder | What You’ll Find | When To Visit |
+| --- | --- | --- |
+| `start/` | Welcome story, platform tour, role personas | First day context |
+| `foundations/` | Concepts explained with analogies and diagrams | Before changing code |
+| `guides/` | Step-by-step recipes tied to the setup scripts | When doing the work |
+| `playbooks/` | Troubleshooting and checklists | When something feels off |
+| `reference/` | Role catalogues, policy summaries, operational notes | Need facts or numbers |
+| `reference/raw/` | Original phase documents, exhaustive matrices | Historical or exhaustive lookup |
+| `ONBOARDING/setup/` | SQL bootstrap scripts (left untouched) | Database seeding |
 
-### POSTGRES
-- `POSTGRES/README.md` – operational overview for the shared database
-- `POSTGRES/setup.md` – instance creation, credentials, and migrations
-- `POSTGRES/testing.md` – health checks and smoke tests
-- `POSTGRES/troubleshoot.md` – common faults and fixes
+## How To Use The Docs
 
-## Recommended Path
-1. New engineers start with `ONBOARDING/README.md`, then follow the setup guide.
-2. Implementers of auth review `RBAC/README.md` and the architecture note before touching code.
-3. Anyone adjusting row-level filters should read `VPD/README.md` prior to running the SQL in `ONBOARDING/setup/`.
+1. **Build intuition** – Read from `start/` to `foundations/` so the architecture feels familiar.
+2. **Follow the recipes** – Use `guides/` while executing the scripts in `ONBOARDING/setup/`.
+3. **Verify your work** – Run the quick checks in `guides/verify-permissions.md` and keep `playbooks/` handy for surprises.
+4. **Dive deeper when needed** – Leverage `reference/` for concise tables and hop into `reference/raw/` if you need the original phase-by-phase detail.
 
-## Keeping Docs Fresh
-- Update the relevant file when flows or SQL change; avoid duplicating the same table in multiple locations.
-- Link across folders instead of copying long explanations.
-- When in doubt, prefer adding detail to a focused doc (e.g. `RBAC/ARCHITECTURE.md`) rather than this index.
+## Keeping Things Fresh
+
+- Add or update the narrative guides first; link to raw data instead of copying tables into multiple files.
+- When new roles, capabilities, or tables appear, update the summaries in `reference/` and cross-link the relevant guide.
+- Prefer examples rooted in real-world analogies—assuming the reader has never built an auth service before keeps the docs approachable.
