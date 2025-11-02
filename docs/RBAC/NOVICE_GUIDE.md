@@ -40,7 +40,7 @@ graph LR;
 sequenceDiagram
     participant Browser
     participant AuthService
-    participant PolicyStore as Policy Catalogue
+    participant PolicyStore as "Policy Catalogue"
     participant DB as Database
 
     Browser->>AuthService: HTTP request + JWT
@@ -84,14 +84,14 @@ Failing any square bumps the user out with a 401, 403, or hidden result.
 
 ```mermaid
 flowchart TD;
-    A[Employer signs in] --> B[JWT accepted];
-    B --> C[Role resolved: EMPLOYER];
-    C --> D[Policy grants payment.details.read];
-    D --> E[UI shows Payment Details button];
-    E --> F[GET /api/v1/worker-payments/{id}];
-    F --> G[Endpoint checks capability];
-    G --> H[RLS filters employer-owned data];
-    H --> I[Success response];
+    A["Employer signs in"] --> B["JWT accepted"];
+    B --> C["Role resolved: EMPLOYER"];
+    C --> D["Policy grants payment.details.read"];
+    D --> E["UI shows Payment Details button"];
+    E --> F["GET /api/v1/worker-payments/:id"];
+    F --> G["Endpoint checks capability"];
+    G --> H["RLS filters employer-owned data"];
+    H --> I["Success response"];
 ```
 
 1. The employer logs in and receives a JWT.
