@@ -18,13 +18,13 @@ If either answer is missing, access is denied.
 
 ```mermaid
 graph LR
-    %% Participants and links
-    U[User (person or system)] --> R[Role badge]
-    R --> P[Policy rulebook]
-    P --> C[Capability list]
-    C --> EP[API endpoint]
-    C --> UI[UI action]
-    EP --> DB[(Authorised data)]
+
+    U["User (person or system)"] --> R["Role badge"]
+    R --> P["Policy rulebook"]
+    P --> C["Capability list"]
+    C --> EP["API endpoint"]
+    C --> UI["UI action"]
+    EP --> DB["Authorised data"]
     UI --> U
 ```
 
