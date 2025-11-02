@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -52,27 +53,38 @@ import java.util.stream.Collectors;
 public class AuthorizationService {
     /**
      * Get all endpoints for a given UI page id (regardless of user)
+     * Deduplicates endpoints since multiple page_actions may link to the same endpoint
      *
      * @param pageId the UI page id
-     * @return List of endpoint details for the page
+     * @return List of unique endpoint details for the page
      */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getEndpointsForPage(Long pageId) {
         List<PageAction> actions = pageActionRepository.findByPageIdAndIsActiveTrue(pageId);
-        List<Map<String, Object>> endpoints = new ArrayList<>();
+        
+        // Use LinkedHashMap to maintain insertion order and ensure uniqueness by endpoint ID
+        Map<Long, Map<String, Object>> uniqueEndpoints = new LinkedHashMap<>();
+        
         for (PageAction action : actions) {
             if (action.getEndpoint() != null) {
-                Map<String, Object> endpointData = new HashMap<>();
-                endpointData.put("method", action.getEndpoint().getMethod());
-                endpointData.put("path", action.getEndpoint().getPath());
-                endpointData.put("service", action.getEndpoint().getService());
-                endpointData.put("version", action.getEndpoint().getVersion());
-                endpointData.put("description", action.getEndpoint().getDescription());
-                endpointData.put("ui_type", action.getEndpoint().getUiType());
-                endpoints.add(endpointData);
+                Long endpointId = action.getEndpoint().getId();
+                
+                // Only add if not already present (deduplicate by endpoint ID)
+                if (!uniqueEndpoints.containsKey(endpointId)) {
+                    Map<String, Object> endpointData = new HashMap<>();
+                    endpointData.put("id", endpointId);
+                    endpointData.put("method", action.getEndpoint().getMethod());
+                    endpointData.put("path", action.getEndpoint().getPath());
+                    endpointData.put("service", action.getEndpoint().getService());
+                    endpointData.put("version", action.getEndpoint().getVersion());
+                    endpointData.put("description", action.getEndpoint().getDescription());
+                    endpointData.put("ui_type", action.getEndpoint().getUiType());
+                    uniqueEndpoints.put(endpointId, endpointData);
+                }
             }
         }
-        return endpoints;
+        
+        return new ArrayList<>(uniqueEndpoints.values());
     }
 
     private static final Logger logger = LoggerFactory.getLogger(AuthorizationService.class);
