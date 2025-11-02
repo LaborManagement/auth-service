@@ -1,21 +1,50 @@
 -- ============================================================================
--- PHASE 1: CREATE ROLES (7 Total)
+-- PHASE 1: CREATE ROLES (8 Total)
 -- ============================================================================
 -- Purpose: Define the 7 core roles with descriptions and capability allocations
 -- Dependencies: None (initial schema setup)
 -- ============================================================================
 
--- Enable error handling
+SET search_path TO auth;
 \set ON_ERROR_STOP on
 
--- Clear any existing roles (for fresh setup)
-TRUNCATE TABLE roles CASCADE;
+BEGIN;
 
--- Insert 7 roles
+-- Backup existing role assignments before clearing (if table doesn't exist, skip)
+CREATE TABLE IF NOT EXISTS user_roles_backup (LIKE user_roles INCLUDING ALL);
+DELETE FROM user_roles_backup;
+
+INSERT INTO user_roles_backup
+SELECT *
+FROM user_roles;
+
+-- Backup existing roles before delete/refresh (if table doesn't exist, skip)
+CREATE TABLE IF NOT EXISTS roles_backup (LIKE roles INCLUDING ALL);
+DELETE FROM roles_backup;
+
+INSERT INTO roles_backup
+SELECT *
+FROM roles;
+
+-- Clear dependent data first to satisfy FK constraints
+DELETE FROM user_roles;
+
+-- Clear current role catalog
+DELETE FROM roles;
+ALTER SEQUENCE roles_id_seq RESTART WITH 1;
+
+-- Insert 8 roles
 INSERT INTO roles (name, description, is_active, created_at, updated_at) VALUES
 (
   'PLATFORM_BOOTSTRAP',
   'One-time system initialization account. Used only during initial setup. Disabled after bootstrap phase. Grants 56% of capabilities (55/98).',
+  true,
+  NOW(),
+  NOW()
+),
+(
+  'BASIC_USER',
+  'Baseline role assigned to every authenticated user. Grants metadata and authorization endpoints required for core dashboards.',
   true,
   NOW(),
   NOW()

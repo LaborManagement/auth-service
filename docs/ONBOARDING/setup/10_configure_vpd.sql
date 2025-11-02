@@ -26,8 +26,28 @@
 -- Dependencies: Users and roles must be created first
 -- ============================================================================
 
+SET search_path TO auth;
 \set ON_ERROR_STOP on
 
+BEGIN;
+
+-- ============================================================================
+-- BACKUP EXISTING VPD ENTRIES FOR TARGET USERS
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS auth.user_tenant_acl_backup AS
+SELECT uta.*, NOW()::timestamp AS backup_created_at
+FROM auth.user_tenant_acl uta
+WHERE false;
+
+ALTER TABLE auth.user_tenant_acl_backup
+    ADD COLUMN IF NOT EXISTS backup_created_at timestamp without time zone;
+
+INSERT INTO auth.user_tenant_acl_backup
+SELECT uta.*, NOW()::timestamp
+FROM auth.user_tenant_acl uta
+WHERE uta.user_id IN (
+  SELECT id FROM users WHERE username IN ('worker1', 'employer1', 'board1', 'admin.tech', 'admin.ops')
+);
 -- ============================================================================
 -- SECTION 1: CONFIGURE WORKER VPD
 -- ============================================================================
@@ -71,7 +91,7 @@ SELECT
   uta.created_at
 FROM user_tenant_acl uta
 JOIN users u ON uta.user_id = u.id
-JOIN user_role_assignments ura ON u.id = ura.user_id
+JOIN user_roles ura ON u.id = ura.user_id
 JOIN roles r ON ura.role_id = r.id
 WHERE u.username = 'worker1';
 
@@ -121,7 +141,7 @@ SELECT
   uta.created_at
 FROM user_tenant_acl uta
 JOIN users u ON uta.user_id = u.id
-JOIN user_role_assignments ura ON u.id = ura.user_id
+JOIN user_roles ura ON u.id = ura.user_id
 JOIN roles r ON ura.role_id = r.id
 WHERE u.username = 'employer1';
 
@@ -171,7 +191,7 @@ SELECT
   uta.created_at
 FROM user_tenant_acl uta
 JOIN users u ON uta.user_id = u.id
-JOIN user_role_assignments ura ON u.id = ura.user_id
+JOIN user_roles ura ON u.id = ura.user_id
 JOIN roles r ON ura.role_id = r.id
 WHERE u.username = 'board1';
 
@@ -221,7 +241,7 @@ SELECT
   uta.created_at
 FROM user_tenant_acl uta
 JOIN users u ON uta.user_id = u.id
-JOIN user_role_assignments ura ON u.id = ura.user_id
+JOIN user_roles ura ON u.id = ura.user_id
 JOIN roles r ON ura.role_id = r.id
 WHERE u.username IN ('admin.tech', 'admin.ops');
 
@@ -246,7 +266,7 @@ SELECT
   uta.created_at
 FROM user_tenant_acl uta
 JOIN users u ON uta.user_id = u.id
-JOIN user_role_assignments ura ON u.id = ura.user_id
+JOIN user_roles ura ON u.id = ura.user_id
 JOIN roles r ON ura.role_id = r.id
 WHERE u.username IN ('worker1', 'employer1', 'board1', 'admin.tech', 'admin.ops')
 ORDER BY r.name, u.username;
@@ -321,7 +341,7 @@ SELECT
   STRING_AGG(DISTINCT u.username, ', ') as usernames
 FROM user_tenant_acl uta
 JOIN users u ON uta.user_id = u.id
-JOIN user_role_assignments ura ON u.id = ura.user_id
+JOIN user_roles ura ON u.id = ura.user_id
 JOIN roles r ON ura.role_id = r.id
 GROUP BY r.id, r.name
 ORDER BY r.name;

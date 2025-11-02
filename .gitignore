@@ -7,3 +7,4 @@ logs/
 *.class
 *.jar
 .vscode/
+docs/user_pwd.md

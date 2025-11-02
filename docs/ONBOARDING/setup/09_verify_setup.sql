@@ -5,6 +5,7 @@
 -- Run after all SQL scripts to validate the complete setup
 -- ============================================================================
 
+SET search_path TO auth;
 \set ON_ERROR_STOP off
 
 -- Start fresh with clear output
@@ -58,7 +59,7 @@ FROM capabilities;
 \echo '-----------------------------------------------'
 SELECT 
   name,
-  policy_type,
+  type as policy_type,
   is_active,
   created_at
 FROM policies
@@ -96,7 +97,7 @@ SELECT COUNT(*) as total_policy_capability_links FROM policy_capabilities;
 SELECT 
   username,
   email,
-  is_active,
+  is_enabled,
   created_at
 FROM users
 WHERE username IN ('platform.bootstrap', 'admin.tech', 'admin.ops', 'board1', 'employer1', 'worker1', 'test.user')
@@ -115,13 +116,13 @@ SELECT
   u.username,
   r.name as role,
   ura.assigned_at
-FROM user_role_assignments ura
+FROM user_roles ura
 JOIN users u ON ura.user_id = u.id
 JOIN roles r ON ura.role_id = r.id
 WHERE u.username IN ('platform.bootstrap', 'admin.tech', 'admin.ops', 'board1', 'employer1', 'worker1', 'test.user')
 ORDER BY u.username;
 
-SELECT COUNT(*) as total_assignments FROM user_role_assignments 
+SELECT COUNT(*) as total_assignments FROM user_roles 
 WHERE user_id IN (SELECT id FROM users WHERE username IN ('platform.bootstrap', 'admin.tech', 'admin.ops', 'board1', 'employer1', 'worker1', 'test.user'));
 \echo ''
 
@@ -135,12 +136,9 @@ WITH role_capabilities AS (
     r.name as role,
     COUNT(DISTINCT pc.capability_id) as capability_count
   FROM roles r
-  LEFT JOIN user_role_assignments ura ON r.id = ura.role_id
-  LEFT JOIN policy_capabilities pc ON r.id = (
-    -- Get policy for this role (assuming role name corresponds to policy pattern)
-    SELECT policy_id FROM policies WHERE name = CONCAT(r.name, '_POLICY')
-  )
-  GROUP BY r.id, r.name
+  LEFT JOIN policies p ON p.name = r.name || '_POLICY'
+  LEFT JOIN policy_capabilities pc ON p.id = pc.policy_id
+  GROUP BY r.name
 )
 SELECT 
   role,
@@ -168,7 +166,7 @@ WHERE pc.policy_id NOT IN (SELECT id FROM policies)
 -- Check for orphaned user-role assignments
 \echo 'Checking for orphaned user-role assignments...'
 SELECT COUNT(*) as orphaned_assignments
-FROM user_role_assignments ura
+FROM user_roles ura
 WHERE ura.user_id NOT IN (SELECT id FROM users)
    OR ura.role_id NOT IN (SELECT id FROM roles);
 \echo 'Expected: 0'
@@ -181,10 +179,10 @@ WHERE ura.user_id NOT IN (SELECT id FROM users)
 \echo '================================================================================'
 
 SELECT 
-  'COMPONENT' as component,
-  'EXPECTED' as expected,
-  'ACTUAL' as actual,
-  CASE WHEN expected = actual THEN '✅ PASS' ELSE '❌ FAIL' END as status
+  component,
+  expected,
+  actual,
+  CASE WHEN expected = actual THEN 'PASS' ELSE 'FAIL' END as status
 FROM (
   SELECT 'Roles' as component, 7 as expected, (SELECT COUNT(*) FROM roles WHERE is_active) as actual
   UNION ALL
@@ -196,15 +194,15 @@ FROM (
   UNION ALL
   SELECT 'Seed Users', 7, (SELECT COUNT(*) FROM users WHERE username IN ('platform.bootstrap', 'admin.tech', 'admin.ops', 'board1', 'employer1', 'worker1', 'test.user'))
   UNION ALL
-  SELECT 'User-Role Assignments', 7, (SELECT COUNT(*) FROM user_role_assignments WHERE user_id IN (SELECT id FROM users WHERE username IN ('platform.bootstrap', 'admin.tech', 'admin.ops', 'board1', 'employer1', 'worker1', 'test.user')))
+  SELECT 'User-Role Assignments', 7, (SELECT COUNT(*) FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE username IN ('platform.bootstrap', 'admin.tech', 'admin.ops', 'board1', 'employer1', 'worker1', 'test.user')))
 ) verification;
 
 \echo ''
 \echo '================================================================================'
 \echo 'NEXT STEPS:'
 \echo '1. Review all verification results above'
-\echo '2. If any status shows ❌ FAIL, re-run the corresponding SQL script'
-\echo '3. Disable PLATFORM_BOOTSTRAP user: UPDATE users SET is_active=false WHERE username=''platform.bootstrap'';'
+\echo '2. If any status shows FAIL, re-run the corresponding SQL script'
+\echo '3. Disable PLATFORM_BOOTSTRAP user: UPDATE users SET is_enabled=false WHERE username=''platform.bootstrap'';'
 \echo '4. Change default passwords for all seed users'
 \echo '5. Configure VPD policies for WORKER and EMPLOYER roles'
 \echo '6. Register API endpoints and UI pages'
