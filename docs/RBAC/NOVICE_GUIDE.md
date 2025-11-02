@@ -17,14 +17,14 @@ If either answer is missing, access is denied.
 ## Meet The Cast
 
 ```mermaid
-graph LR;
-    U[User (person or system)] --> R[Role badge];
-    R --> P[Policy rulebook];
-    P --> C[Capability list];
-    C --> EP[API endpoint];
-    C --> UI[UI action];
-    EP --> DB[(Authorised data)];
-    UI --> U;
+graph LR
+    U[User (person or system)] --> R[Role badge]
+    R --> P[Policy rulebook]
+    P --> C[Capability list]
+    C --> EP[API endpoint]
+    C --> UI[UI action]
+    EP --> DB[(Authorised data)]
+    UI --> U
 ```
 
 - **User** – A person or service account that signs in.
