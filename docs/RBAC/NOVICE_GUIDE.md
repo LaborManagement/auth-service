@@ -18,25 +18,12 @@ If either answer is missing, access is denied.
 
 ```mermaid
 graph LR
-    subgraph People & Apps
-        U[User\n(employee or system)]
-        UI[UI Page\n(button, link, tile)]
-    end
-    subgraph Auth Service
-        R[Role]
-        P[Policy]
-        C[Capability]
-        EP[Endpoint]
-    end
-    subgraph Data Layer
-        DB[(Database rows)]
-    end
-    U --> R
-    R --> P
-    P --> C
-    C --> EP
-    C --> UI
-    EP --> DB
+    U[User (person or system)] --> R[Role badge]
+    R --> P[Policy rulebook]
+    P --> C[Capability list]
+    C --> EP[API endpoint]
+    C --> UI[UI action]
+    EP --> DB[(Authorised data)]
     UI --> U
 ```
 
