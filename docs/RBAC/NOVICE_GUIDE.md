@@ -17,14 +17,14 @@ If either answer is missing, access is denied.
 ## Meet The Cast
 
 ```mermaid
-graph LR
-    U[User (person or system)] --> R[Role badge]
-    R --> P[Policy rulebook]
-    P --> C[Capability list]
-    C --> EP[API endpoint]
-    C --> UI[UI action]
-    EP --> DB[(Authorised data)]
-    UI --> U
+graph LR;
+    U[User (person or system)] --> R[Role badge];
+    R --> P[Policy rulebook];
+    P --> C[Capability list];
+    C --> EP[API endpoint];
+    C --> UI[UI action];
+    EP --> DB[(Authorised data)];
+    UI --> U;
 ```
 
 - **User** – A person or service account that signs in.
@@ -83,15 +83,15 @@ Failing any square bumps the user out with a 401, 403, or hidden result.
 ## Example Journey: “View Payment Details”
 
 ```mermaid
-flowchart TD
-    A[Employer signs in] --> B[JWT accepted]
-    B --> C[Role resolved: EMPLOYER]
-    C --> D[EMPLOYER_POLICY grants payment.details.read]
-    D --> E[UI shows Payment Details button]
-    E --> F[GET /api/v1/worker-payments/{id}]
-    F --> G[Endpoint checks capability]
-    G --> H[RLS only returns employer-owned data]
-    H --> I[Success response]
+flowchart TD;
+    A[Employer signs in] --> B[JWT accepted];
+    B --> C[Role resolved: EMPLOYER];
+    C --> D[Policy grants payment.details.read];
+    D --> E[UI shows Payment Details button];
+    E --> F[GET /api/v1/worker-payments/{id}];
+    F --> G[Endpoint checks capability];
+    G --> H[RLS filters employer-owned data];
+    H --> I[Success response];
 ```
 
 1. The employer logs in and receives a JWT.
