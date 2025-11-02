@@ -58,10 +58,9 @@ Every data table has two columns that control access:
 
 ## 📂 Documentation Structure
 
-- **[Setup Guide](setup.md)** - How to implement VPD/RLS from scratch
-- **[Testing Guide](testing.md)** - How to verify RLS is working correctly
-- **[Troubleshooting](troubleshoot.md)** - Common issues and fixes
-- **SQL Test Scripts** - In `testing/` folder
+- **Setup reference** – follow the SQL in `../ONBOARDING/setup/08_configure_vpd.sql` and its README notes
+- **Testing snippets** – see the SQL files in the `testing/` folder inside this directory
+- **Troubleshooting cues** – use the checklist below for common causes and fixes
 
 ## 🧪 Testing (Most Common Question)
 
@@ -104,6 +103,6 @@ SELECT * FROM payment_flow.worker_uploaded_data;
 
 ## 📖 Next Steps
 
-1. **New to VPD?** → Read [Setup Guide](setup.md)
-2. **Want to test?** → See [Testing Guide](testing.md)
-3. **Something broken?** → Check [Troubleshooting](troubleshoot.md)
+1. First-time setup → run the onboarding scripts through step 08 and confirm the checklist above.
+2. Need to validate behaviour → execute the SQL under `testing/`.
+3. Seeing incorrect results → work through the troubleshooting table and verify ACL data.
