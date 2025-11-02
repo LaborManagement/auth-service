@@ -8,17 +8,17 @@ This guide maps the PostgreSQL tables that power authentication and authorizatio
 
 ```mermaid
 erDiagram
-    AUTH_USER ||--o{ AUTH_USER_ROLE : "holds"
-    AUTH_ROLE ||--o{ AUTH_ROLE_POLICY : "activates"
-    AUTH_POLICY ||--o{ AUTH_POLICY_CAPABILITY : "bundles"
-    AUTH_CAPABILITY ||--o{ AUTH_POLICY_CAPABILITY : ""
-    AUTH_ENDPOINT ||--o{ AUTH_ENDPOINT_POLICY : "requires"
-    AUTH_POLICY ||--o{ AUTH_ENDPOINT_POLICY : ""
-    AUTH_CAPABILITY ||--o{ AUTH_UI_PAGE_CAPABILITY : "shows"
-    AUTH_UI_PAGE ||--o{ AUTH_UI_PAGE_CAPABILITY : ""
-    AUTH_CAPABILITY ||--o{ AUTH_UI_ACTION_CAPABILITY : "enables"
-    AUTH_UI_ACTION ||--o{ AUTH_UI_ACTION_CAPABILITY : ""
-    AUTH_USER ||--o{ AUTH_USER_TENANT_ACL : "tenant scope"
+    "auth.users" ||--o{ "auth.user_roles" : "holds"
+    "auth.roles" ||--o{ "auth.role_policies" : "activates"
+    "auth.policies" ||--o{ "auth.policy_capabilities" : "bundles"
+    "auth.capabilities" ||--o{ "auth.policy_capabilities" : ""
+    "auth.endpoints" ||--o{ "auth.endpoint_policies" : "requires"
+    "auth.policies" ||--o{ "auth.endpoint_policies" : ""
+    "auth.capabilities" ||--o{ "auth.ui_page_capabilities" : "shows"
+    "auth.ui_pages" ||--o{ "auth.ui_page_capabilities" : ""
+    "auth.capabilities" ||--o{ "auth.ui_action_capabilities" : "enables"
+    "auth.ui_actions" ||--o{ "auth.ui_action_capabilities" : ""
+    "auth.users" ||--o{ "auth.user_tenant_acl" : "tenant scope"
 ```
 
 - **Users** connect to **Roles** via `auth.user_role`.
