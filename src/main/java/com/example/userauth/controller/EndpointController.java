@@ -63,7 +63,7 @@ public class EndpointController {
      */
     @Auditable(action = "GET_ALL_ENDPOINTS", resourceType = "ENDPOINT")
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN_TECH') or hasRole('ADMIN_OPS')")
     @Transactional(readOnly = true)
     public ResponseEntity<List<Map<String, Object>>> getAllEndpoints(HttpServletRequest request) {
         List<Endpoint> endpoints = endpointRepository.findAll();
@@ -117,7 +117,7 @@ public class EndpointController {
     @PostMapping
     @Transactional
     @Auditable(action = "CREATE_ENDPOINT", resourceType = "ENDPOINT")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN_TECH') or hasRole('ADMIN_OPS')")
     public ResponseEntity<Map<String, Object>> createEndpoint(@RequestBody EndpointRequest request) {
         Endpoint endpoint = new Endpoint(
                 request.getService(),

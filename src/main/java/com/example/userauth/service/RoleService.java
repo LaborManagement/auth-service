@@ -74,13 +74,45 @@ public class RoleService {
     @Transactional(readOnly = true)
     public Optional<Role> getRoleById(Long id) {
         logger.debug("Fetching role by id: {} using query DAO", id);
-        return roleQueryDao.findById(id);
+        Optional<Role> roleOpt = roleQueryDao.findById(id);
+        
+        if (roleOpt.isEmpty()) {
+            return roleOpt;
+        }
+        
+        Role role = roleOpt.get();
+        Set<String> capabilities = new LinkedHashSet<>(
+                capabilityRepository.findCapabilityNamesByRoleName(role.getName()));
+        role.setCapabilityNames(capabilities);
+        
+        Set<String> policies = policyRepository.findRBACPoliciesByRole(role.getName()).stream()
+                .map(policy -> policy.getName())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        role.setPolicyNames(policies);
+        
+        return Optional.of(role);
     }
     
     @Transactional(readOnly = true)
     public Optional<Role> getRoleByName(String name) {
         logger.debug("Fetching role by name: {} using query DAO", name);
-        return roleQueryDao.findByName(name);
+        Optional<Role> roleOpt = roleQueryDao.findByName(name);
+        
+        if (roleOpt.isEmpty()) {
+            return roleOpt;
+        }
+        
+        Role role = roleOpt.get();
+        Set<String> capabilities = new LinkedHashSet<>(
+                capabilityRepository.findCapabilityNamesByRoleName(role.getName()));
+        role.setCapabilityNames(capabilities);
+        
+        Set<String> policies = policyRepository.findRBACPoliciesByRole(role.getName()).stream()
+                .map(policy -> policy.getName())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        role.setPolicyNames(policies);
+        
+        return Optional.of(role);
     }
     
     @Transactional(readOnly = true)
