@@ -3,6 +3,7 @@ package com.example.userauth.service;
 import com.example.userauth.dto.AuthResponse;
 import com.example.userauth.dto.LoginRequest;
 import com.example.userauth.dto.RegisterRequest;
+import com.example.userauth.dto.UpdateUserRequest;
 import com.example.userauth.entity.Role;
 import com.example.userauth.entity.User;
 import com.example.userauth.entity.UserRole;
@@ -352,6 +353,81 @@ public class AuthService {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
         return new RoleUpdateResult(assignedIds, assignedNames);
+    }
+    
+    /**
+     * Update user information
+     * @param userId ID of the user to update
+     * @param request Update request with new user data
+     */
+    @Transactional
+    public User updateUser(Long userId, UpdateUserRequest request) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+        
+        boolean changed = false;
+        
+        // Update username if provided and different
+        if (StringUtils.hasText(request.getUsername()) && !request.getUsername().equals(user.getUsername())) {
+            // Check if username already exists
+            if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+                throw new RuntimeException("Username already exists: " + request.getUsername());
+            }
+            user.setUsername(request.getUsername());
+            changed = true;
+        }
+        
+        // Update email if provided and different
+        if (StringUtils.hasText(request.getEmail()) && !request.getEmail().equals(user.getEmail())) {
+            // Check if email already exists (using findByUsernameOrEmail)
+            Optional<User> existingUser = userRepository.findByUsernameOrEmail(request.getEmail());
+            if (existingUser.isPresent() && !existingUser.get().getId().equals(userId)) {
+                throw new RuntimeException("Email already exists: " + request.getEmail());
+            }
+            user.setEmail(request.getEmail());
+            changed = true;
+        }
+        
+        // Update full name if provided
+        if (StringUtils.hasText(request.getFullName()) && !request.getFullName().equals(user.getFullName())) {
+            user.setFullName(request.getFullName());
+            changed = true;
+        }
+        
+        // Update password if provided (will be hashed)
+        if (StringUtils.hasText(request.getPassword())) {
+            String encodedPassword = passwordEncoder.encode(request.getPassword());
+            user.setPassword(encodedPassword);
+            changed = true;
+            // Increment permission version to invalidate tokens when password changes
+            user.incrementPermissionVersion();
+        }
+        
+        if (changed) {
+            User savedUser = userRepository.save(user);
+            logger.info("User {} updated successfully", user.getUsername());
+            return savedUser;
+        } else {
+            logger.info("User {} update requested but no changes detected", user.getUsername());
+            return user;
+        }
+    }
+    
+    /**
+     * Delete user (soft delete by disabling)
+     * @param userId ID of the user to delete
+     */
+    @Transactional
+    public void deleteUser(Long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+        
+        // Soft delete by disabling the user
+        user.setEnabled(false);
+        user.incrementPermissionVersion(); // Invalidate all tokens
+        userRepository.save(user);
+        
+        logger.info("User {} deleted (disabled)", user.getUsername());
     }
 
     private Optional<UserRole> resolvePrimaryRole(List<Role> roles) {

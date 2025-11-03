@@ -1,12 +1,14 @@
 -- ============================================================================
--- PHASE 4: LINK POLICIES TO CAPABILITIES (Layer 1 - Capability-Policy)
--- WITH IMPROVED FK VALIDATION - CORRECTED VERSION
+-- ONBOARDING PHASE 05: LINK BOOTSTRAP POLICIES TO CAPABILITIES
 -- ============================================================================
--- Purpose: Create policy-capability relationships granting capabilities to roles
--- Total Links: 292 (55+51+42+19+17+14+50+4)
--- Improvements: Explicit FK validation, batch loading, error handling
--- PostgreSQL Syntax: Tested for PostgreSQL compliance
--- Dependencies: Policies and Capabilities must be created first
+-- Purpose: Map granular bootstrap policies to their respective capabilities.
+-- Scope:
+--   - BASIC_USER baseline capabilities
+--   - BUSINESS_ADMIN slices (user + limited role operations)
+--   - TECHNICAL_BOOTSTRAP slices (RBAC, UI, endpoint, and system operations)
+--
+-- Dependencies: 03_create_capabilities.sql and 04_create_policies.sql must run first.
+-- PostgreSQL Syntax: Tested for PostgreSQL compliance.
 -- ============================================================================
 
 SET search_path TO auth;
@@ -15,19 +17,11 @@ SET search_path TO auth;
 BEGIN;
 
 -- ============================================================================
--- BACKUP EXISTING DATA (Optional - for fresh setup)
+-- BACKUP EXISTING DATA (with date suffix: 251201)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS policy_capabilities_backup AS
-SELECT pc.*, NOW()::timestamp AS backup_created_at
-FROM policy_capabilities pc
-WHERE false;
-
-ALTER TABLE policy_capabilities_backup
-    ADD COLUMN IF NOT EXISTS backup_created_at timestamp without time zone;
-
-INSERT INTO policy_capabilities_backup
-SELECT pc.*, NOW()::timestamp
-FROM policy_capabilities pc;
+CREATE TABLE IF NOT EXISTS policy_capabilities_251201 (LIKE policy_capabilities INCLUDING ALL);
+DELETE FROM policy_capabilities_251201;
+INSERT INTO policy_capabilities_251201 SELECT * FROM policy_capabilities;
 
 -- Clear existing policy-capability links
 DELETE FROM policy_capabilities;
@@ -44,15 +38,15 @@ DECLARE
 BEGIN
   SELECT COUNT(*) INTO v_policy_count FROM policies WHERE is_active = true;
   SELECT COUNT(*) INTO v_capability_count FROM capabilities WHERE is_active = true;
-  
-  IF v_policy_count <> 8 THEN
-    RAISE EXCEPTION 'Expected 8 active policies, found %. Run 04_create_policies.sql first.', v_policy_count;
+
+  IF v_policy_count <> 17 THEN
+    RAISE EXCEPTION 'Expected 17 active bootstrap policies, found %. Run 04_create_policies.sql first.', v_policy_count;
   END IF;
-  
-  IF v_capability_count <> 89 THEN
-    RAISE EXCEPTION 'Expected 89 active capabilities, found %. Run 02_create_capabilities_CORRECTED.sql first.', v_capability_count;
+
+  IF v_capability_count <> 56 THEN
+    RAISE EXCEPTION 'Expected 56 active capabilities, found %. Run 03_create_capabilities.sql first.', v_capability_count;
   END IF;
-  
+
   RAISE NOTICE 'Prerequisites validated: % policies, % capabilities', v_policy_count, v_capability_count;
 END $$;
 
@@ -96,391 +90,165 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================================
--- PLATFORM_BOOTSTRAP_POLICY - 55 Capabilities (56%)
+-- POLICY-CAPABILITY LINKS
 -- ============================================================================
 
--- User Management (5/5)
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'user.account.create');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'user.account.read');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'user.account.update');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'user.account.delete');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'user.status.toggle');
+-- BASIC_USER baseline
+SELECT safe_policy_capability_link('BASIC_USER_POLICY', 'authorization.api.access');
+SELECT safe_policy_capability_link('BASIC_USER_POLICY', 'service.catalog.read');
 
--- RBAC - Role Management (6/6)
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.role.create');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.role.read');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.role.update');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.role.delete');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.role.assign');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.role.revoke');
+-- BUSINESS_ADMIN policies
+SELECT safe_policy_capability_link('USER_ACCOUNT_MANAGE_POLICY', 'user.account.create');
+SELECT safe_policy_capability_link('USER_ACCOUNT_MANAGE_POLICY', 'user.account.read');
+SELECT safe_policy_capability_link('USER_ACCOUNT_MANAGE_POLICY', 'user.account.update');
+SELECT safe_policy_capability_link('USER_ACCOUNT_MANAGE_POLICY', 'user.account.delete');
+SELECT safe_policy_capability_link('USER_ACCOUNT_MANAGE_POLICY', 'user.status.toggle');
 
--- RBAC - Policy Management (7/7)
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.policy.create');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.policy.read');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.policy.update');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.policy.delete');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.policy.toggle');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.policy.link-capability');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.policy.unlink-capability');
+SELECT safe_policy_capability_link('ROLE_READ_POLICY', 'rbac.role.read');
+SELECT safe_policy_capability_link('ROLE_ASSIGN_POLICY', 'rbac.role.assign');
+SELECT safe_policy_capability_link('ROLE_ASSIGN_POLICY', 'rbac.role.revoke');
 
--- RBAC - Capability Management (6/6)
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.capability.create');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.capability.read');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.capability.update');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.capability.delete');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.capability.toggle');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.capability.read-matrix');
+SELECT safe_policy_capability_link('ROLE_MANAGE_POLICY', 'rbac.role.create');
+SELECT safe_policy_capability_link('ROLE_MANAGE_POLICY', 'rbac.role.update');
+SELECT safe_policy_capability_link('ROLE_MANAGE_POLICY', 'rbac.role.delete');
 
--- API Endpoint Management (7/7)
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.endpoint.create');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.endpoint.read');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.endpoint.update');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.endpoint.delete');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.endpoint.toggle');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.endpoint.link-policy');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'rbac.endpoint.unlink-policy');
+-- Technical capability management
+SELECT safe_policy_capability_link('CAPABILITY_READ_POLICY', 'rbac.capability.read');
+SELECT safe_policy_capability_link('CAPABILITY_READ_POLICY', 'rbac.capability.read-matrix');
 
--- UI Page Management (8/8)
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.page.create');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.page.read');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.page.update');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.page.delete');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.page.toggle');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.page.reorder');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.page.read-children');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.page.manage-hierarchy');
+SELECT safe_policy_capability_link('CAPABILITY_MANAGE_POLICY', 'rbac.capability.create');
+SELECT safe_policy_capability_link('CAPABILITY_MANAGE_POLICY', 'rbac.capability.update');
+SELECT safe_policy_capability_link('CAPABILITY_MANAGE_POLICY', 'rbac.capability.delete');
+SELECT safe_policy_capability_link('CAPABILITY_MANAGE_POLICY', 'rbac.capability.toggle');
 
--- Page Action Management (7/7)
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.action.create');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.action.read');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.action.update');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.action.delete');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.action.toggle');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.action.reorder');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'ui.action.read-by-page');
+-- Policy management
+SELECT safe_policy_capability_link('POLICY_READ_POLICY', 'rbac.policy.read');
 
--- System & Reporting (8/8)
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'system.ingestion.trigger-mt940');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'system.ingestion.trigger-van');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'system.audit.read');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'system.audit.filter');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'system.audit.export');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'system.settings.read');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'system.settings.update');
-SELECT safe_policy_capability_link('PLATFORM_BOOTSTRAP_POLICY', 'system.ingestion.read-status');
+SELECT safe_policy_capability_link('POLICY_MANAGE_POLICY', 'rbac.policy.create');
+SELECT safe_policy_capability_link('POLICY_MANAGE_POLICY', 'rbac.policy.update');
+SELECT safe_policy_capability_link('POLICY_MANAGE_POLICY', 'rbac.policy.delete');
+SELECT safe_policy_capability_link('POLICY_MANAGE_POLICY', 'rbac.policy.toggle');
+SELECT safe_policy_capability_link('POLICY_MANAGE_POLICY', 'rbac.policy.link-capability');
+SELECT safe_policy_capability_link('POLICY_MANAGE_POLICY', 'rbac.policy.unlink-capability');
 
--- ============================================================================
--- BASIC_USER_POLICY - 4 Capabilities (Baseline)
--- ============================================================================
+-- Endpoint management
+SELECT safe_policy_capability_link('ENDPOINT_READ_POLICY', 'rbac.endpoint.read');
 
--- Core metadata + authorization
-SELECT safe_policy_capability_link('BASIC_USER_POLICY', 'user.account.read');
-SELECT safe_policy_capability_link('BASIC_USER_POLICY', 'rbac.endpoint.read');
-SELECT safe_policy_capability_link('BASIC_USER_POLICY', 'ui.page.read');
-SELECT safe_policy_capability_link('BASIC_USER_POLICY', 'ui.action.read');
+SELECT safe_policy_capability_link('ENDPOINT_MANAGE_POLICY', 'rbac.endpoint.create');
+SELECT safe_policy_capability_link('ENDPOINT_MANAGE_POLICY', 'rbac.endpoint.update');
+SELECT safe_policy_capability_link('ENDPOINT_MANAGE_POLICY', 'rbac.endpoint.delete');
+SELECT safe_policy_capability_link('ENDPOINT_MANAGE_POLICY', 'rbac.endpoint.toggle');
+SELECT safe_policy_capability_link('ENDPOINT_MANAGE_POLICY', 'rbac.endpoint.link-policy');
+SELECT safe_policy_capability_link('ENDPOINT_MANAGE_POLICY', 'rbac.endpoint.unlink-policy');
 
--- ============================================================================
--- ADMIN_TECH_POLICY - 51 Capabilities (52%)
--- ============================================================================
+-- UI page management
+SELECT safe_policy_capability_link('UI_PAGE_READ_POLICY', 'ui.page.read');
+SELECT safe_policy_capability_link('UI_PAGE_READ_POLICY', 'ui.page.read-children');
 
--- User Management (5/5)
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'user.account.create');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'user.account.read');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'user.account.update');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'user.account.delete');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'user.status.toggle');
+SELECT safe_policy_capability_link('UI_PAGE_MANAGE_POLICY', 'ui.page.create');
+SELECT safe_policy_capability_link('UI_PAGE_MANAGE_POLICY', 'ui.page.update');
+SELECT safe_policy_capability_link('UI_PAGE_MANAGE_POLICY', 'ui.page.delete');
+SELECT safe_policy_capability_link('UI_PAGE_MANAGE_POLICY', 'ui.page.toggle');
+SELECT safe_policy_capability_link('UI_PAGE_MANAGE_POLICY', 'ui.page.reorder');
+SELECT safe_policy_capability_link('UI_PAGE_MANAGE_POLICY', 'ui.page.manage-hierarchy');
 
--- RBAC - Role Management (6/6)
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.role.create');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.role.read');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.role.update');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.role.delete');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.role.assign');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.role.revoke');
+-- UI action management
+SELECT safe_policy_capability_link('UI_ACTION_READ_POLICY', 'ui.action.read');
+SELECT safe_policy_capability_link('UI_ACTION_READ_POLICY', 'ui.action.read-by-page');
 
--- RBAC - Policy Management (7/7)
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.policy.create');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.policy.read');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.policy.update');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.policy.delete');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.policy.toggle');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.policy.link-capability');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.policy.unlink-capability');
+SELECT safe_policy_capability_link('UI_ACTION_MANAGE_POLICY', 'ui.action.create');
+SELECT safe_policy_capability_link('UI_ACTION_MANAGE_POLICY', 'ui.action.update');
+SELECT safe_policy_capability_link('UI_ACTION_MANAGE_POLICY', 'ui.action.delete');
+SELECT safe_policy_capability_link('UI_ACTION_MANAGE_POLICY', 'ui.action.toggle');
+SELECT safe_policy_capability_link('UI_ACTION_MANAGE_POLICY', 'ui.action.reorder');
 
--- RBAC - Capability Management (6/6)
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.capability.create');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.capability.read');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.capability.update');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.capability.delete');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.capability.toggle');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.capability.read-matrix');
+-- System operations
+SELECT safe_policy_capability_link('SYSTEM_READ_POLICY', 'system.audit.read');
+SELECT safe_policy_capability_link('SYSTEM_READ_POLICY', 'system.audit.filter');
+SELECT safe_policy_capability_link('SYSTEM_READ_POLICY', 'system.audit.export');
+SELECT safe_policy_capability_link('SYSTEM_READ_POLICY', 'system.settings.read');
+SELECT safe_policy_capability_link('SYSTEM_READ_POLICY', 'system.ingestion.read-status');
 
--- API Endpoint Management (7/7)
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.endpoint.create');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.endpoint.read');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.endpoint.update');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.endpoint.delete');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.endpoint.toggle');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.endpoint.link-policy');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'rbac.endpoint.unlink-policy');
-
--- UI Page Management (8/8)
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.page.create');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.page.read');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.page.update');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.page.delete');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.page.toggle');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.page.reorder');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.page.read-children');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.page.manage-hierarchy');
-
--- Page Action Management (7/7)
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.action.create');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.action.read');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.action.update');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.action.delete');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.action.toggle');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.action.reorder');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'ui.action.read-by-page');
-
--- System & Reporting (3/8) - Excludes ingestion triggers
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'system.audit.read');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'system.settings.read');
-SELECT safe_policy_capability_link('ADMIN_TECH_POLICY', 'system.ingestion.read-status');
+SELECT safe_policy_capability_link('SYSTEM_MANAGE_POLICY', 'system.settings.update');
+SELECT safe_policy_capability_link('SYSTEM_MANAGE_POLICY', 'system.ingestion.trigger-mt940');
+SELECT safe_policy_capability_link('SYSTEM_MANAGE_POLICY', 'system.ingestion.trigger-van');
 
 -- ============================================================================
--- ADMIN_OPS_POLICY - 42 Capabilities (43%)
--- ============================================================================
-
--- Payment File Management (8/8)
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'payment.file.upload');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'payment.file.read');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'payment.file.download');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'payment.file.delete');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'payment.file.validate');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'payment.summary.read');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'payment.record.read');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'payment.details.read');
-
--- Payment Request Management (9/9)
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'reconciliation.request.create');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'reconciliation.request.read');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'reconciliation.request.update');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'reconciliation.request.delete');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'reconciliation.request.submit');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'reconciliation.request.track');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'reconciliation.request.validate');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'reconciliation.payment.approve');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'reconciliation.payment.reject');
-
--- RBAC - Role Management (2/6) - Read only
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'rbac.role.read');
-
--- RBAC - Policy Management (1/7) - Read only
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'rbac.policy.read');
-
--- System & Reporting (5/8) - Ingestion & Audit
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'system.ingestion.trigger-mt940');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'system.ingestion.trigger-van');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'system.audit.read');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'system.audit.filter');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'system.settings.read');
-
--- UI Page Management (6/8) - Read focused
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'ui.page.read');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'ui.page.read-children');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'ui.action.read');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'ui.action.read-by-page');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'system.ingestion.read-status');
-SELECT safe_policy_capability_link('ADMIN_OPS_POLICY', 'rbac.capability.read');
-
--- ============================================================================
--- BOARD_POLICY - 17 Capabilities (17%)
--- ============================================================================
-
--- Board Operations (7/7)
-SELECT safe_policy_capability_link('BOARD_POLICY', 'board.request.read');
-SELECT safe_policy_capability_link('BOARD_POLICY', 'board.payment.reconcile');
-SELECT safe_policy_capability_link('BOARD_POLICY', 'board.decision.vote');
-SELECT safe_policy_capability_link('BOARD_POLICY', 'board.payment.approve');
-SELECT safe_policy_capability_link('BOARD_POLICY', 'board.payment.reject');
-SELECT safe_policy_capability_link('BOARD_POLICY', 'board.receipt.read');
-SELECT safe_policy_capability_link('BOARD_POLICY', 'board.receipt.process');
-
--- Payment Request Management (8/9) - No delete
-SELECT safe_policy_capability_link('BOARD_POLICY', 'reconciliation.request.read');
-SELECT safe_policy_capability_link('BOARD_POLICY', 'reconciliation.request.track');
-SELECT safe_policy_capability_link('BOARD_POLICY', 'reconciliation.request.validate');
-SELECT safe_policy_capability_link('BOARD_POLICY', 'reconciliation.payment.approve');
-SELECT safe_policy_capability_link('BOARD_POLICY', 'reconciliation.payment.reject');
-
--- UI Page Management (3/8)
-SELECT safe_policy_capability_link('BOARD_POLICY', 'ui.page.read');
-SELECT safe_policy_capability_link('BOARD_POLICY', 'ui.action.read');
-SELECT safe_policy_capability_link('BOARD_POLICY', 'ui.page.read-children');
-
--- ============================================================================
--- EMPLOYER_POLICY - 19 Capabilities (19%)
--- ============================================================================
-
--- Employer Operations (5/5)
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'employer.request.read');
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'employer.request.validate');
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'employer.payment.approve');
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'employer.payment.reject');
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'employer.receipt.read');
-
--- Payment Request Management (6/9)
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'reconciliation.request.read');
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'reconciliation.request.update');
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'reconciliation.request.track');
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'reconciliation.request.validate');
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'reconciliation.payment.approve');
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'reconciliation.payment.reject');
-
--- Worker Operations (6/6)
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'worker.data.read');
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'worker.status.read');
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'worker.receipt.send');
-
--- UI Page Management (2/8)
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'ui.page.read');
-SELECT safe_policy_capability_link('EMPLOYER_POLICY', 'ui.action.read');
-
--- ============================================================================
--- WORKER_POLICY - 14 Capabilities (14%)
--- ============================================================================
-
--- Worker Operations (6/6)
-SELECT safe_policy_capability_link('WORKER_POLICY', 'worker.data.upload');
-SELECT safe_policy_capability_link('WORKER_POLICY', 'worker.data.read');
-SELECT safe_policy_capability_link('WORKER_POLICY', 'worker.request.create');
-SELECT safe_policy_capability_link('WORKER_POLICY', 'worker.request.submit');
-SELECT safe_policy_capability_link('WORKER_POLICY', 'worker.status.read');
-SELECT safe_policy_capability_link('WORKER_POLICY', 'worker.receipt.send');
-
--- Payment Request Management (6/9) - Read, create, submit, track
-SELECT safe_policy_capability_link('WORKER_POLICY', 'reconciliation.request.read');
-SELECT safe_policy_capability_link('WORKER_POLICY', 'reconciliation.request.track');
-
--- UI Page Management (2/8)
-SELECT safe_policy_capability_link('WORKER_POLICY', 'ui.page.read');
-SELECT safe_policy_capability_link('WORKER_POLICY', 'ui.action.read');
-
--- ============================================================================
--- BASIC_USER_POLICY - 4 Capabilities (baseline for all authenticated users)
--- ============================================================================
-
--- API Access (2/2) - Note: authorization.api.access and service.catalog.read
--- are handled separately in Phase 12 (link_critical_endpoints_to_basic_policy)
--- They are NOT stored as capabilities but as endpoint_policies
-
--- UI Access (2/2)
-SELECT safe_policy_capability_link('BASIC_USER_POLICY', 'ui.page.read');
-SELECT safe_policy_capability_link('BASIC_USER_POLICY', 'ui.action.read');
-
--- ============================================================================
--- TEST_USER_POLICY - 50 Capabilities (51%)
--- ============================================================================
-
--- User Management (5/5)
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'user.account.create');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'user.account.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'user.account.update');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'user.account.delete');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'user.status.toggle');
-
--- Payment File Management (8/8)
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'payment.file.upload');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'payment.file.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'payment.file.download');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'payment.file.delete');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'payment.file.validate');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'payment.summary.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'payment.record.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'payment.details.read');
-
--- Payment Request Management (9/9)
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'reconciliation.request.create');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'reconciliation.request.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'reconciliation.request.update');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'reconciliation.request.delete');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'reconciliation.request.submit');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'reconciliation.request.track');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'reconciliation.request.validate');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'reconciliation.payment.approve');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'reconciliation.payment.reject');
-
--- Worker Operations (6/6)
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'worker.data.upload');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'worker.data.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'worker.request.create');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'worker.request.submit');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'worker.status.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'worker.receipt.send');
-
--- Employer Operations (5/5)
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'employer.request.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'employer.request.validate');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'employer.payment.approve');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'employer.payment.reject');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'employer.receipt.read');
-
--- Board Operations (7/7)
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'board.request.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'board.payment.reconcile');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'board.decision.vote');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'board.payment.approve');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'board.payment.reject');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'board.receipt.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'board.receipt.process');
-
--- RBAC - Capability Management (3/6) - Read only
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'rbac.capability.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'rbac.role.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'rbac.policy.read');
-
--- UI Page Management (8/8)
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'ui.page.create');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'ui.page.read');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'ui.page.update');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'ui.page.delete');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'ui.page.toggle');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'ui.page.reorder');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'ui.page.read-children');
-SELECT safe_policy_capability_link('TEST_USER_POLICY', 'ui.page.manage-hierarchy');
-
--- ============================================================================
--- VERIFICATION & SUMMARY
+-- VERIFICATION
 -- ============================================================================
 DO $$
 DECLARE
+  v_expected RECORD;
+  v_actual INTEGER;
   v_total_links INTEGER;
-  v_policy_links RECORD;
 BEGIN
-  SELECT COUNT(*) INTO v_total_links FROM policy_capabilities;
-  
-  -- Note: We expect fewer links than 288 because we only have 89 capabilities instead of 98
-  IF v_total_links < 200 THEN
-    RAISE EXCEPTION 'Expected at least 200 policy-capability links, found %', v_total_links;
-  END IF;
-  
-  RAISE NOTICE 'Successfully created % policy-capability links', v_total_links;
-  
-  -- Show breakdown by policy
-  FOR v_policy_links IN
-    SELECT p.name, COUNT(pc.id) as link_count
-    FROM policies p
-    LEFT JOIN policy_capabilities pc ON p.id = pc.policy_id
-    WHERE p.is_active = true
-    GROUP BY p.id, p.name
-    ORDER BY link_count DESC
+  -- Validate capability counts per policy
+  FOR v_expected IN
+    SELECT * FROM (
+      VALUES
+        ('BASIC_USER_POLICY', 2),
+        ('USER_ACCOUNT_MANAGE_POLICY', 5),
+        ('ROLE_READ_POLICY', 1),
+        ('ROLE_ASSIGN_POLICY', 2),
+        ('ROLE_MANAGE_POLICY', 3),
+        ('CAPABILITY_READ_POLICY', 2),
+        ('CAPABILITY_MANAGE_POLICY', 4),
+        ('POLICY_READ_POLICY', 1),
+        ('POLICY_MANAGE_POLICY', 6),
+        ('ENDPOINT_READ_POLICY', 1),
+        ('ENDPOINT_MANAGE_POLICY', 6),
+        ('UI_PAGE_READ_POLICY', 2),
+        ('UI_PAGE_MANAGE_POLICY', 6),
+        ('UI_ACTION_READ_POLICY', 2),
+        ('UI_ACTION_MANAGE_POLICY', 5),
+        ('SYSTEM_READ_POLICY', 5),
+        ('SYSTEM_MANAGE_POLICY', 3)
+    ) AS expected(policy_name, capability_count)
   LOOP
-    RAISE NOTICE 'Policy "%": % capabilities', v_policy_links.name, v_policy_links.link_count;
+    SELECT COUNT(*) INTO v_actual
+    FROM policy_capabilities pc
+    JOIN policies p ON p.id = pc.policy_id
+    WHERE p.name = v_expected.policy_name;
+
+    IF v_actual <> v_expected.capability_count THEN
+      RAISE EXCEPTION 'Policy % has % capabilities (expected %)', 
+        v_expected.policy_name, v_actual, v_expected.capability_count;
+    END IF;
   END LOOP;
+
+  -- Total verification
+  SELECT COUNT(*) INTO v_total_links FROM policy_capabilities;
+  IF v_total_links <> 56 THEN
+    RAISE EXCEPTION 'Expected 56 policy-capability links, found %', v_total_links;
+  END IF;
+
+  RAISE NOTICE '✓ Policy-capability linking completed: % total links', v_total_links;
 END $$;
 
--- Drop helper function
-DROP FUNCTION safe_policy_capability_link(TEXT, TEXT);
+-- Display Summary Report
+SELECT 
+  p.name as policy_name,
+  COUNT(pc.id) as capability_count,
+  STRING_AGG(c.name, ', ' ORDER BY c.name) as capabilities
+FROM policies p
+LEFT JOIN policy_capabilities pc ON p.id = pc.policy_id
+LEFT JOIN capabilities c ON pc.capability_id = c.id
+WHERE p.is_active = true
+GROUP BY p.id, p.name
+ORDER BY policy_name;
 
 COMMIT;
+
+-- ============================================================================
+-- POST-SCRIPT SUMMARY
+-- ============================================================================
+-- Policy-Capability Links: 56 total
+--
+-- Highlights:
+--   - BASIC_USER baseline preserved (2 capabilities)
+--   - BUSINESS_ADMIN role now derives discrete policies for user lifecycle + role assignment
+--   - TECHNICAL_BOOTSTRAP role manages RBAC, UI, endpoint, and system surfaces via dedicated policies
+--   - Helper function enforces FK validation and idempotent inserts
+--
+-- Next Step: Run 06_link_endpoints_to_policies.sql to align endpoint protections with the new policy slices.
+-- ============================================================================

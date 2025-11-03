@@ -8,3 +8,5 @@ logs/
 *.jar
 .vscode/
 docs/user_pwd.md
+docs/onboarding/
+*.sql

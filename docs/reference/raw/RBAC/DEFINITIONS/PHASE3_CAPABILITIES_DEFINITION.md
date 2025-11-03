@@ -235,7 +235,7 @@ Defined **65+ atomic capabilities** organized by 13 modules. Each capability rep
 
 ### User Management
 ```
-user.account.create           → POST   /api/auth/register
+user.account.create           → POST   /api/auth/users
 user.account.read             → GET    /api/auth/users
 user.account.update           → PUT    /api/auth/users/{userId}
 user.account.delete           → DELETE /api/auth/users/{userId}

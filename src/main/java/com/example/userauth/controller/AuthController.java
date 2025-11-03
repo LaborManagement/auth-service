@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import jakarta.servlet.http.HttpServletRequest;
 import com.shared.common.util.ETagUtil;
@@ -97,7 +98,7 @@ public class AuthController {
         }
     }
     
-    @PostMapping("/register")
+    @PostMapping("/users")
     @Auditable(action = "REGISTER_ATTEMPT", resourceType = "USER")
     @Operation(summary = "User registration", description = "Register a new user account")
     @ApiResponses(value = {
@@ -108,7 +109,7 @@ public class AuthController {
         try {
             logger.info("Registration attempt for user: {}", registerRequest.getUsername());
             AuthResponse response = authService.register(registerRequest);
-            return ResponseEntity.ok(response);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (Exception e) {
             logger.error("Registration failed for user: {}", registerRequest.getUsername(), e);
             return ResponseEntity.badRequest()
@@ -225,6 +226,48 @@ public class AuthController {
             ));
         } catch (Exception e) {
             logger.error("Failed to update user roles", e);
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+    
+    @Auditable(action = "UPDATE_USER", resourceType = "USER")
+    @PutMapping("/users/{userId}")
+    @Operation(summary = "Update user", description = "Update user information (Requires authentication)")
+    @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
+    public ResponseEntity<?> updateUser(
+        @Parameter(description = "User ID") @PathVariable Long userId,
+        @Valid @RequestBody UpdateUserRequest request) {
+        try {
+            User updatedUser = authService.updateUser(userId, request);
+            return ResponseEntity.ok(Map.of(
+                "message", "User updated successfully",
+                "userId", updatedUser.getId(),
+                "username", updatedUser.getUsername(),
+                "email", updatedUser.getEmail(),
+                "fullName", updatedUser.getFullName()
+            ));
+        } catch (Exception e) {
+            logger.error("Failed to update user", e);
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+    
+    @Auditable(action = "DELETE_USER", resourceType = "USER")
+    @DeleteMapping("/users/{userId}")
+    @Operation(summary = "Delete user", description = "Soft delete user by disabling the account (Requires authentication)")
+    @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
+    public ResponseEntity<?> deleteUser(
+        @Parameter(description = "User ID") @PathVariable Long userId) {
+        try {
+            authService.deleteUser(userId);
+            return ResponseEntity.ok(Map.of(
+                "message", "User deleted successfully",
+                "userId", userId
+            ));
+        } catch (Exception e) {
+            logger.error("Failed to delete user", e);
             return ResponseEntity.badRequest()
                 .body(Map.of("error", e.getMessage()));
         }

@@ -187,7 +187,7 @@ graph TD
 
 | Action ID | Page | Action Name | Description | HTTP Method | Endpoint | Accessibility |
 |-----------|------|-------------|-------------|-------------|----------|---------------|
-| 5.2.1 | Create User | Create User | Create new user account | POST | `/api/auth/register` | ADMIN_TECH, ADMIN_OPS |
+| 5.2.1 | Create User | Create User | Create new user account | POST | `/api/auth/users` | ADMIN_TECH, ADMIN_OPS |
 | 5.2.2 | Create User | Set Password | Set initial password | PUT | `/api/auth/users/{userId}/password` | ADMIN_TECH |
 | 5.3.1 | User List | List Users | Get all system users | GET | `/api/auth/users` | ADMIN_TECH, ADMIN_OPS |
 | 5.3.2 | User List | Filter by Role | Filter users by role | GET | `/api/auth/users/role/{role}` | ADMIN_TECH, ADMIN_OPS |

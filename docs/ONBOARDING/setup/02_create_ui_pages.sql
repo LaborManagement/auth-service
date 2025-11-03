@@ -1,8 +1,8 @@
 -- ============================================================================
--- ONBOARDING PHASE 01: CREATE UI PAGES
+-- ONBOARDING PHASE 02: CREATE UI PAGES
 -- ============================================================================
--- Purpose: Define all UI pages with proper hierarchy and module organization
--- This is a PREREQUISITE for page_actions linking in Phase 02
+-- Purpose: Seed the minimal navigation tree required for bootstrap operations.
+-- Pages are referenced by their `page_id` slugs in later phases.
 -- ============================================================================
 
 SET search_path TO auth;
@@ -10,44 +10,117 @@ SET search_path TO auth;
 
 BEGIN;
 
--- Delete existing UI pages to start fresh
+-- ============================================================================
+-- BACKUP EXISTING DATA (with date suffix: 251201)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS page_actions_251201 (LIKE page_actions INCLUDING ALL);
+DELETE FROM page_actions_251201;
+INSERT INTO page_actions_251201 SELECT * FROM page_actions;
+
+CREATE TABLE IF NOT EXISTS ui_pages_251201 (LIKE ui_pages INCLUDING ALL);
+DELETE FROM ui_pages_251201;
+INSERT INTO ui_pages_251201 SELECT * FROM ui_pages;
+
+-- ============================================================================
+-- RESET UI PAGES
+-- ============================================================================
+DELETE FROM page_actions;
 DELETE FROM ui_pages;
+ALTER SEQUENCE ui_pages_id_seq RESTART WITH 1;
 
--- ============================================================================
--- UI PAGES DEFINITION (15 total pages)
--- ============================================================================
--- Structure: id, page_id, label, route, icon, module, parent_id, display_order, is_menu_item, is_active
-
-INSERT INTO ui_pages (id, page_id, label, route, icon, module, parent_id, display_order, is_menu_item, is_active, required_capability)
+-- Root level pages
+INSERT INTO ui_pages (page_id, label, route, icon, module, parent_id, display_order, is_menu_item, is_active, required_capability)
 VALUES
--- 1. Dashboard (root level)
-(1, 'dashboard', 'Dashboard', '/dashboard', 'home', 'DASHBOARD', NULL, 1, true, true, NULL),
+('dashboard', 'Dashboard', '/dashboard', 'home', 'CORE', NULL, 1, true, true, NULL);
 
--- 2-5. Administration section
-(2, 'admin', 'Administration', '/admin', 'settings', 'ADMIN', NULL, 2, true, true, 'USER_MANAGE'),
-(4, 'user-mgmt', 'User Management', '/admin/users', 'users', 'ADMIN', 2, 2, true, true, 'USER_MANAGE'),
-(5, 'role-mgmt', 'Role Management', '/admin/roles', 'shield', 'ADMIN', 2, 3, true, true, 'ROLE_MANAGE'),
+INSERT INTO ui_pages (page_id, label, route, icon, module, parent_id, display_order, is_menu_item, is_active, required_capability)
+VALUES
+('admin', 'Administration', '/admin', 'settings', 'ADMIN', NULL, 2, true, true, NULL);
 
--- 6-8. System Management section
-(3, 'system', 'System', '/system', 'tool', 'SYSTEM', NULL, 3, true, true, 'SYSTEM_MAINTENANCE'),
-(6, 'capabilities', 'Capabilities', '/admin/capabilities', 'unlock', 'SYSTEM', 3, 1, true, true, 'SYSTEM_MAINTENANCE'),
-(7, 'policies', 'Policies', '/admin/policies', 'lock', 'SYSTEM', 3, 2, true, true, 'SYSTEM_MAINTENANCE'),
-(8, 'endpoints', 'Endpoints', '/admin/endpoints', 'link', 'SYSTEM', 3, 3, true, true, 'SYSTEM_MAINTENANCE'),
-(9, 'ui-pages', 'UI Pages', '/admin/ui-pages', 'layout', 'SYSTEM', 3, 4, true, true, 'SYSTEM_MAINTENANCE'),
-(10, 'page-actions', 'Page Actions', '/admin/page-actions', 'mouse-pointer', 'SYSTEM', 3, 5, true, true, 'SYSTEM_MAINTENANCE'),
-(11, 'system-logs', 'System Logs', '/admin/system-logs', 'activity', 'SYSTEM', 3, 6, true, true, 'SYSTEM_MAINTENANCE'),
+-- Administration children
+WITH admin_page AS (
+  SELECT id FROM ui_pages WHERE page_id = 'admin'
+)
+INSERT INTO ui_pages (page_id, label, route, icon, module, parent_id, display_order, is_menu_item, is_active, required_capability)
+SELECT child.page_id,
+       child.label,
+       child.route,
+       child.icon,
+       child.module,
+       admin_page.id,
+       child.display_order,
+       true,
+       true,
+       child.required_capability
+FROM admin_page
+CROSS JOIN (
+  VALUES
+    ('user-mgmt',       'User Management',   '/admin/users',        'users',   'ADMIN', 1, 'user.account.read'),
+    ('role-mgmt',       'Role Management',   '/admin/roles',        'shield',  'ADMIN', 2, 'rbac.role.read'),
+    ('policy-mgmt',     'Policy Management', '/admin/policies',     'lock',    'ADMIN', 3, 'rbac.policy.read'),
+    ('capability-mgmt', 'Capability Catalog','/admin/capabilities', 'key',     'ADMIN', 4, 'rbac.capability.read'),
+    ('endpoint-mgmt',   'Endpoint Catalog',  '/admin/endpoints',    'link',    'ADMIN', 5, 'rbac.endpoint.read'),
+    ('system-ops',      'System Operations', '/admin/system',       'tool',    'ADMIN', 6, 'system.settings.read'),
+    ('ui-assets',       'UI Assets',         '/admin/ui',           'layout',  'ADMIN', 7, NULL)
+) AS child(page_id, label, route, icon, module, display_order, required_capability);
 
--- 12. Backup & Restore
-(12, 'backup-restore', 'Backup & Restore', '/admin/backup', 'save', 'ADMIN', 2, 4, true, true, 'SYSTEM_MAINTENANCE'),
+-- UI Assets children
+WITH assets_page AS (
+  SELECT id FROM ui_pages WHERE page_id = 'ui-assets'
+)
+INSERT INTO ui_pages (page_id, label, route, icon, module, parent_id, display_order, is_menu_item, is_active, required_capability)
+SELECT child.page_id,
+       child.label,
+       child.route,
+       child.icon,
+       child.module,
+       assets_page.id,
+       child.display_order,
+       true,
+       true,
+       child.required_capability
+FROM assets_page
+CROSS JOIN (
+  VALUES
+    ('ui-pages',   'UI Pages',   '/admin/ui/pages',   'layers',        'ADMIN', 1, 'ui.page.read'),
+    ('ui-actions', 'UI Actions', '/admin/ui/actions', 'mouse-pointer', 'ADMIN', 2, 'ui.action.read')
+) AS child(page_id, label, route, icon, module, display_order, required_capability);
 
--- 13-15. Reconciliation & Worker section
-(13, 'worker-mgmt', 'Worker Management', '/workers', 'briefcase', 'WORKER', NULL, 4, true, true, 'WORKER_MANAGE'),
-(14, 'worker-data', 'Worker Uploaded Data', '/workers/data', 'database', 'WORKER', 13, 1, true, true, 'WORKER_MANAGE'),
-(15, 'file-summary', 'Upload File Summary', '/workers/summary', 'file-text', 'WORKER', 13, 2, true, true, 'WORKER_MANAGE');
+-- ============================================================================
+-- VERIFICATION
+-- ============================================================================
+DO $$
+DECLARE
+  v_total INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO v_total FROM ui_pages;
+  IF v_total <> 11 THEN
+    RAISE EXCEPTION 'Expected 11 bootstrap UI pages, found %', v_total;
+  END IF;
+  RAISE NOTICE 'Successfully created % UI pages for bootstrap navigation.', v_total;
+END $$;
+
+SELECT id, page_id, label, route, parent_id, display_order
+FROM ui_pages
+ORDER BY parent_id NULLS FIRST, display_order, label;
 
 COMMIT;
 
--- Verification
-SELECT id, label, route, module, parent_id, display_order, is_active 
-FROM ui_pages 
-ORDER BY display_order, id;
+-- ============================================================================
+-- POST-SCRIPT SUMMARY
+-- ============================================================================
+-- Navigation structure:
+--   dashboard           – user landing page
+--   admin               – parent menu for administration
+--     ├─ user-mgmt
+--     ├─ role-mgmt
+--     ├─ policy-mgmt
+--     ├─ capability-mgmt
+--     ├─ endpoint-mgmt
+--     ├─ system-ops
+--     └─ ui-assets
+--         ├─ ui-pages
+--         └─ ui-actions
+--
+-- Next Step: Run 03_create_capabilities.sql to seed capability catalog.
+-- ============================================================================

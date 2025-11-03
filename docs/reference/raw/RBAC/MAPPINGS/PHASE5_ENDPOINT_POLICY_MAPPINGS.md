@@ -36,7 +36,7 @@ Created comprehensive **ENDPOINT-POLICY mappings** for all **100+ endpoints** ac
 |----------|------|------|-------------------|-----------|-----------|-----------|-------|----------|--------|-----------|
 | Login | POST | `/api/auth/login` | N/A (Public) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Logout | POST | `/api/auth/logout` | user.account.read | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Register | POST | `/api/auth/register` | N/A (Public) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Register | POST | `/api/auth/users` | N/A (Public) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | UI Config | GET | `/api/auth/ui-config` | ui.page.read | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ---
@@ -58,7 +58,7 @@ Created comprehensive **ENDPOINT-POLICY mappings** for all **100+ endpoints** ac
 |----------|------|------|-------------------|-----------|-----------|-----------|-------|----------|--------|-----------|
 | List All Users | GET | `/api/auth/users` | user.account.read | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Get Users by Role | GET | `/api/auth/users/role/{role}` | user.account.read | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Create User | POST | `/api/auth/register` | user.account.create | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Create User | POST | `/api/auth/users` | user.account.create | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Update User Status | PUT | `/api/auth/users/{userId}/status` | user.status.toggle | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Update User Roles | PUT | `/api/auth/users/{userId}/roles` | rbac.role.assign | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Invalidate User Tokens | POST | `/api/auth/users/{userId}/invalidate-tokens` | user.account.update | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |

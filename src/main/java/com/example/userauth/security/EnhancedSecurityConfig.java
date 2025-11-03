@@ -59,7 +59,7 @@ public class EnhancedSecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 
                 // Public endpoints
-                .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register", "/api/auth/logout").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/logout").permitAll()
                 .requestMatchers("/api/auth/**").access(dynamicEndpointAuthorizationManager)
                 .requestMatchers("/api/public/**").permitAll()
                 .requestMatchers("/internal/auth/**", "/internal/authz/**").authenticated()

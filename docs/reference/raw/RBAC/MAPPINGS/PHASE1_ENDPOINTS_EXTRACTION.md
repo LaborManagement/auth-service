@@ -21,7 +21,7 @@ Extracted and organized **100+ endpoints** from 3 microservices (auth-service, p
 |---|------|----------|-------------|---------------|--------------|
 | 1.1 | POST | `/api/auth/login` | User authentication - returns JWT token | ❌ No | Public |
 | 1.2 | POST | `/api/auth/logout` | Token revocation and logout | ✅ Yes | Authenticated |
-| 1.3 | POST | `/api/auth/register` | User registration (new account) | ❌ No | Public |
+| 1.3 | POST | `/api/auth/users` | User registration (new account) | ❌ No | Public |
 | 1.4 | GET | `/api/auth/ui-config` | Get UI configuration for current user | ✅ Yes | Authenticated |
 | 1.5 | GET | `/api/auth/users` | Get all users in system | ✅ Yes | ADMIN_TECH, ADMIN_OPS |
 | 1.6 | GET | `/api/auth/users/role/{role}` | Get users filtered by role | ✅ Yes | ADMIN_TECH, ADMIN_OPS |
@@ -285,7 +285,7 @@ Extracted and organized **100+ endpoints** from 3 microservices (auth-service, p
 ```
 PUBLIC (No Auth):
   ├─ POST /api/auth/login
-  ├─ POST /api/auth/register
+  ├─ POST /api/auth/users
   └─ GET  /api/auth/ui-config (Redirects unauthenticated to login)
 
 AUTHENTICATED (All Users):
