@@ -75,16 +75,32 @@ WHERE ur.user_id = 'employee-123'
 -- Is user allowed to call GET /api/admin/capabilities?
 SELECT EXISTS(
   SELECT 1
-  FROM auth.endpoint_policies ep
+  FROM auth.endpoints e
+  JOIN auth.endpoint_policies ep ON e.id = ep.endpoint_id
   JOIN auth.policies p ON ep.policy_id = p.id
+  JOIN auth.policy_capabilities pc ON p.id = pc.policy_id
+  JOIN auth.capabilities c ON pc.capability_id = c.id
   JOIN auth.role_policies rp ON p.id = rp.policy_id
   JOIN auth.user_roles ur ON rp.role_id = ur.role_id
   WHERE ur.user_id = 'employee-123'
-    AND ep.endpoint_id = (
-      SELECT id FROM auth.endpoints 
-      WHERE method = 'GET' AND path = '/api/admin/capabilities'
-    )
+    AND e.method = 'GET' 
+    AND e.path = '/api/admin/capabilities'
 );
+```
+
+**Complete Authorization Chain:**
+```
+User (id=123)
+  ↓ user_roles
+Role (BUSINESS_ADMIN)
+  ↓ role_policies (not in current schema, but policies.expression has roles)
+Policy (USER_ACCOUNT_MANAGE_POLICY)
+  ↓ policy_capabilities
+Capability (user.account.read)
+  ↓ Check if endpoint requires this capability via endpoint_policies
+Endpoint (GET /api/auth/users)
+  ↓ endpoint_policies
+Policy (USER_ACCOUNT_MANAGE_POLICY) ✓ MATCH
 ```
 
 ### **Decision 4: Row-Level Security (RLS)**
@@ -196,37 +212,145 @@ VALUES ('alice-uuid', 'GET /api/admin/capabilities', 'capability.view', 'ALLOWED
 
 ---
 
+## UI Authorization Flow
+
+### **Frontend Permission Check**
+When a user loads a page, the UI queries for available actions and endpoints:
+
+```http
+GET /api/meta/endpoints?page_id=2
+Authorization: Bearer eyJhbGciOi...
+
+Response:
+{
+  "pageId": 2,
+  "pageName": "User Management",
+  "actions": [
+    {
+      "id": 2,
+      "label": "Create User",
+      "endpoint": {
+        "id": 3,
+        "method": "POST",
+        "path": "/api/auth/users"
+      },
+      "capability": "user.account.create"
+    },
+    {
+      "id": 3,
+      "label": "View Users",
+      "endpoint": {
+        "id": 5,
+        "method": "GET",
+        "path": "/api/auth/users"
+      },
+      "capability": "user.account.read"
+    },
+    {
+      "id": 4,
+      "label": "Edit User",
+      "endpoint": {
+        "id": 71,
+        "method": "PUT",
+        "path": "/api/auth/users/{userId}"
+      },
+      "capability": "user.account.update"
+    }
+  ]
+}
+```
+
+### **Page Action Resolution**
+```sql
+-- Get page actions with endpoints for a specific page
+SELECT 
+    pa.id,
+    pa.label,
+    c.name as capability,
+    e.id as endpoint_id,
+    e.method,
+    e.path
+FROM auth.page_actions pa
+JOIN auth.capabilities c ON pa.capability_id = c.id
+JOIN auth.endpoints e ON pa.endpoint_id = e.id
+WHERE pa.page_id = :pageId
+  AND pa.capability_id IN (
+    -- User's capabilities from their roles
+    SELECT DISTINCT pc.capability_id
+    FROM auth.user_roles ur
+    JOIN auth.policies p ON p.expression->>'roles' ? ur.role_id::text
+    JOIN auth.policy_capabilities pc ON p.id = pc.policy_id
+    WHERE ur.user_id = :userId
+  );
+```
+
+### **Dual Relationship in page_actions**
+Each page action has two critical fields:
+- **capability_id**: Which permission is required to see this action
+- **endpoint_id**: Which API endpoint to call when action is triggered
+
+```
+User clicks "Edit User" button
+  ↓
+UI checks: Does user have capability "user.account.update"? ✓
+  ↓
+UI calls endpoint: PUT /api/auth/users/{userId}
+  ↓
+Backend checks: Does endpoint_policies allow this? ✓
+  ↓
+Success!
+```
+
+**Why both relationships?**
+- **Frontend**: Needs capability to decide button visibility
+- **Backend**: Needs endpoint-policy link to enforce security
+- **page_actions**: Bridges both by storing capability_id + endpoint_id
+
+---
+
 ## Permission Denied Scenarios
 
 ### **Scenario A: Missing Capability**
 ```
-Request: DELETE /api/admin/capabilities/cap-001
-User: bob.jones (VIEWER role only)
-VIEWER_POLICY includes: [capability.view, audit.view]
-DELETE requires: [capability.manage]
+Request: DELETE /api/auth/users/123
+User: bob.jones (BASIC_USER role only)
+BASIC_USER has capabilities: [service.catalog.read, permission.check]
+DELETE /api/auth/users/{userId} requires: [user.account.delete]
 
 Decision: ❌ 403 Forbidden
-Reason: User has VIEWER_POLICY, but it doesn't grant capability.manage
+Reason: User's roles don't grant user.account.delete capability
 ```
 
-### **Scenario B: Endpoint Not Registered**
+### **Scenario B: UI Action Hidden**
 ```
-Request: GET /api/internal/debug-state
-User: alice.smith (EMPLOYEE role)
-Endpoint auth.endpoints: NOT FOUND
+Page: User Management (page_id=2)
+User: charlie.brown (BASIC_USER)
+Available actions: Only "View Dashboard" (no user management capabilities)
+
+UI Decision: ✓ Hide "Edit User" and "Delete User" buttons
+Reason: page_actions query returns no results for those actions
+        because user lacks user.account.update and user.account.delete
+```
+
+### **Scenario C: Endpoint Not Linked**
+```
+Request: PATCH /api/auth/users/123
+User: alice.smith (BUSINESS_ADMIN)
+Endpoint: Not registered in auth.endpoints table
 
 Decision: ❌ 404 Not Found OR 403 Forbidden
 Reason: Endpoint doesn't exist in registration table
 ```
 
-### **Scenario C: Role-Based Lockout**
+### **Scenario D: Role-Based Lockout**
 ```
-Request: POST /api/admin/users
-User: charlie.brown (RESTRICTED_USER role)
-RESTRICTED_USER_POLICY: (empty - no capabilities)
+Request: POST /api/admin/roles
+User: business.admin (BUSINESS_ADMIN role)
+BUSINESS_ADMIN policies: USER_ACCOUNT_MANAGE_POLICY (user management only)
+Endpoint requires: Role management capability
 
 Decision: ❌ 403 Forbidden
-Reason: User's role has no policies granting this action
+Reason: User's policies don't include role management capabilities
 ```
 
 ---

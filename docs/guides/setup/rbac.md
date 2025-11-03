@@ -164,77 +164,197 @@ Content-Type: application/json
 
 ## 5. Wire UI Pages & Actions
 
+### Understanding page_actions Table
+The `page_actions` table serves a **dual purpose**:
+1. **Permission Check**: Links to `capability_id` to determine if user can see the action
+2. **API Binding**: Links to `endpoint_id` to specify which endpoint to call
+
+**Schema:**
+```sql
+CREATE TABLE auth.page_actions (
+    id BIGSERIAL PRIMARY KEY,
+    page_id INTEGER REFERENCES auth.ui_pages(id),
+    label VARCHAR(64) NOT NULL,
+    capability_id BIGINT REFERENCES auth.capabilities(id),
+    endpoint_id BIGINT REFERENCES auth.endpoints(id),
+    -- other fields...
+);
+```
+
+### Frontend Authorization Flow
+```
+User loads page
+  ↓
+Call: GET /api/meta/endpoints?page_id={id}
+  ↓
+Backend returns page_actions WHERE:
+  - user has the required capability_id
+  - endpoint_id is not null
+  ↓
+Frontend renders buttons/actions with API endpoints
+```
+
 **Via SQL:**
 ```sql
--- Page visibility
-INSERT INTO auth.ui_page (code, description)
-VALUES ('EMPLOYER_DASHBOARD', 'Employer overview dashboard')
-ON CONFLICT (code) DO NOTHING;
-
-INSERT INTO auth.ui_page_capability (page_id, capability_id)
-SELECT p.id, c.id
-FROM auth.ui_page p, auth.capability c
-WHERE p.code = 'EMPLOYER_DASHBOARD'
+-- Create page action with both capability and endpoint
+INSERT INTO auth.page_actions (page_id, label, capability_id, endpoint_id)
+SELECT 
+    p.id,
+    'Download Ledger',
+    c.id,
+    e.id
+FROM auth.ui_pages p
+CROSS JOIN auth.capabilities c
+CROSS JOIN auth.endpoints e
+WHERE p.page_id = 'EMPLOYER_DASHBOARD'
   AND c.name = 'payment.ledger.download'
-ON CONFLICT (page_id, capability_id) DO NOTHING;
-
--- Button visibility
-INSERT INTO auth.ui_action (code, description)
-VALUES ('EMPLOYER_LEDGER_DOWNLOAD', 'Download ledger button')
-ON CONFLICT (code) DO NOTHING;
-
-INSERT INTO auth.ui_action_capability (action_id, capability_id)
-SELECT a.id, c.id
-FROM auth.ui_action a, auth.capability c
-WHERE a.code = 'EMPLOYER_LEDGER_DOWNLOAD'
-  AND c.name = 'payment.ledger.download'
-ON CONFLICT (action_id, capability_id) DO NOTHING;
+  AND e.method = 'GET'
+  AND e.path = '/api/employer/payment-ledger'
+ON CONFLICT DO NOTHING;
 ```
 
 **Via API (UI):**
 ```http
--- Create UI page
-POST /api/admin/ui-pages
+-- Create page action
+POST /api/admin/page-actions
 Content-Type: application/json
 
 {
-  "code": "EMPLOYER_DASHBOARD",
-  "description": "Employer overview dashboard"
+  "pageId": 5,
+  "label": "Download Ledger",
+  "capabilityId": 12,
+  "endpointId": 45
 }
 ```
 
+### Verify Page Actions Linkage
+```sql
+-- Check complete authorization chain for a page
+SELECT 
+    pa.id,
+    pa.label,
+    c.name as capability,
+    e.method,
+    e.path,
+    STRING_AGG(DISTINCT p.name, ', ') as policies
+FROM auth.page_actions pa
+JOIN auth.capabilities c ON pa.capability_id = c.id
+JOIN auth.endpoints e ON pa.endpoint_id = e.id
+JOIN auth.policy_capabilities pc ON c.id = pc.capability_id
+JOIN auth.policies p ON pc.policy_id = p.id
+WHERE pa.page_id = 2  -- User Management page
+GROUP BY pa.id, pa.label, c.name, e.method, e.path
+ORDER BY pa.id;
+```
+
+**Important:** Front-end code should:
+1. Call `/api/meta/endpoints?page_id={id}` to get available actions
+2. Only render buttons/actions returned in the response
+3. Use the `endpoint` field to make API calls when clicked
+
+## 6. Assign Roles To Users
+
+**Via SQL:**
+```sql
+INSERT INTO auth.user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM auth.users u, auth.roles r
+WHERE u.username = 'employer.demo'
+  AND r.name = 'EMPLOYER'
+ON CONFLICT (user_id, role_id) DO NOTHING;
+```
+
+**Via API (UI):**
 ```http
--- Link capability to page
-POST /api/admin/ui-pages/{pageId}/capabilities
+POST /api/admin/users/{userId}/roles
 Content-Type: application/json
 
 {
-  "capabilityIds": [12]
+  "roleIds": [2]
 }
 ```
+(where `userId` is the ID of employer.demo user and `roleIds` contains EMPLOYER role ID)
 
+If creating service accounts, ensure credentials are stored securely and tokens carry the correct audience.
+
+## 7. Verify The Setup
+
+### Backend Verification
+1. **Test endpoint authorization** with both allowed and disallowed users (expect 200 vs 403):
+```bash
+# Allowed user
+curl -H "Authorization: Bearer $ADMIN_TOKEN" 
+  http://localhost:8080/api/auth/users
+
+# Disallowed user
+curl -H "Authorization: Bearer $BASIC_TOKEN" 
+  http://localhost:8080/api/auth/users
+```
+
+2. **Check capability resolution**:
+```sql
+-- What capabilities does this user have?
+SELECT DISTINCT c.name
+FROM auth.user_roles ur
+JOIN auth.policies p ON p.expression->>'roles' ? ur.role_id::text
+JOIN auth.policy_capabilities pc ON p.id = pc.policy_id
+JOIN auth.capabilities c ON pc.capability_id = c.id
+WHERE ur.user_id = 123;
+```
+
+3. **Verify endpoint-policy links**:
+```sql
+-- What policies protect this endpoint?
+SELECT p.name, p.expression
+FROM auth.endpoints e
+JOIN auth.endpoint_policies ep ON e.id = ep.endpoint_id
+JOIN auth.policies p ON ep.policy_id = p.id
+WHERE e.method = 'PUT' AND e.path = '/api/auth/users/{userId}';
+```
+
+### Frontend Verification
+1. **Test page action visibility**:
 ```http
--- Create UI action
-POST /api/admin/ui-actions
-Content-Type: application/json
+GET /api/meta/endpoints?page_id=2
+Authorization: Bearer $USER_TOKEN
+```
 
+2. **Verify response contains actions**:
+```json
 {
-  "code": "EMPLOYER_LEDGER_DOWNLOAD",
-  "description": "Download ledger button"
+  "actions": [
+    {
+      "id": 2,
+      "label": "Create User",
+      "capability": "user.account.create",
+      "endpoint": {
+        "method": "POST",
+        "path": "/api/auth/users"
+      }
+    }
+  ]
 }
 ```
 
-```http
--- Link capability to action
-POST /api/admin/ui-actions/{actionId}/capabilities
-Content-Type: application/json
-
-{
-  "capabilityIds": [12]
-}
+3. **Check audit logs** for recorded access decisions:
+```sql
+SELECT * FROM audit.access_log 
+WHERE user_id = 123 
+ORDER BY timestamp DESC 
+LIMIT 10;
 ```
 
-Front-end code should hide controls unless the capability appears in `/api/me/authorizations`.
+## Troubleshooting Tips
+
+- **Capability missing** – Check `auth.policy_capabilities` and verify policy is linked to user's role
+- **Endpoint still returns 403** – Verify `auth.endpoint_policies` has the correct policy_id
+- **Button visible but API fails** – Check that `page_actions.endpoint_id` matches the endpoint with correct policy
+- **Page action not showing** – Verify both `capability_id` and `endpoint_id` are set in `page_actions`
+- **UI shows wrong actions** – Clear frontend cache and verify `/api/meta/endpoints` returns correct data
+
+## Next Steps
+
+Once RBAC is wired, continue to [VPD Setup Playbook](vpd.md) to configure tenant-level data guardrails.
 
 ## 6. Assign Roles To Users
 

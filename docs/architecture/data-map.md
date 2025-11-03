@@ -11,17 +11,16 @@ erDiagram
     "auth.users" ||--o{ "auth.user_roles" : "assigns"
     "auth.users" ||--o{ "auth.user_tenant_acl" : "scopes"
     "auth.roles" ||--o{ "auth.user_roles" : ""
-    "auth.roles" ||--o{ "auth.role_policies" : "activates"
-    "auth.policies" ||--o{ "auth.role_policies" : ""
     "auth.policies" ||--o{ "auth.policy_capabilities" : "bundles"
     "auth.capabilities" ||--o{ "auth.policy_capabilities" : ""
     "auth.endpoints" ||--o{ "auth.endpoint_policies" : "guarded by"
     "auth.policies" ||--o{ "auth.endpoint_policies" : ""
-    "auth.ui_pages" ||--o{ "auth.ui_page_capabilities" : "displays"
-    "auth.capabilities" ||--o{ "auth.ui_page_capabilities" : ""
-    "auth.ui_actions" ||--o{ "auth.ui_action_capabilities" : "enables"
-    "auth.capabilities" ||--o{ "auth.ui_action_capabilities" : ""
+    "auth.ui_pages" ||--o{ "auth.page_actions" : "contains"
+    "auth.page_actions" }o--|| "auth.capabilities" : "requires"
+    "auth.page_actions" }o--|| "auth.endpoints" : "calls"
 ```
+
+**Note:** The current schema uses `policies.expression` (JSON with roles array) instead of a separate `role_policies` junction table.
 
 ## Entity Descriptions
 
@@ -69,34 +68,88 @@ Bundles of capabilities tied to roles. A policy says "if you have this role, you
 
 | Column | Type | Purpose |
 | --- | --- | --- |
-| `id` | UUID | Primary key |
-| `name` | TEXT | Policy name (e.g., WORKER_POLICY) |
+| `id` | BIGINT | Primary key |
+| `name` | VARCHAR | Policy name (e.g., USER_ACCOUNT_MANAGE_POLICY) |
 | `description` | TEXT | Intent and scope |
+| `type` | VARCHAR | Policy type (RBAC, ABAC, CUSTOM) |
+| `expression` | JSON | Role binding: `{"roles": ["ROLE_NAME"]}` |
 | `is_active` | BOOLEAN | Enable/disable entire policy |
 
 **Example:**
-- WORKER_POLICY bundles: { payment.details.read, payment.submit, payment.track }
+```json
+{
+  "name": "USER_ACCOUNT_MANAGE_POLICY",
+  "description": "Manage user accounts and lifecycle operations",
+  "expression": {"roles": ["BUSINESS_ADMIN", "TECHNICAL_BOOTSTRAP"]}
+}
+```
+
+**Role Resolution:** The `expression` field contains a JSON object with a `roles` array. Users with roles matching those in the array inherit all capabilities linked to this policy via `policy_capabilities`.
 
 ---
 
 ### 💡 **auth.capabilities** - Atomic Permissions
-Smallest unit of permission (e.g., "read payments" or "download ledger"). Named as `<domain>.<subject>.<action>`.
+Smallest unit of permission (e.g., "read users" or "update user"). Named as `<domain>.<subject>.<action>`.
 
 | Column | Type | Purpose |
 | --- | --- | --- |
-| `id` | UUID | Primary key |
-| `name` | TEXT | Unique identifier (e.g., payment.ledger.download) |
+| `id` | BIGINT | Primary key |
+| `name` | VARCHAR | Unique identifier (e.g., user.account.update) |
 | `description` | TEXT | Human-readable purpose |
-| `domain` | TEXT | Category (payment, worker, admin) |
+| `module` | VARCHAR | Module grouping (user, rbac, policy, etc.) |
+| `action` | VARCHAR | Operation (CREATE, READ, UPDATE, DELETE, etc.) |
+| `resource` | VARCHAR | Target resource (USER, ROLE, POLICY, etc.) |
 | `is_active` | BOOLEAN | Enable/disable capability |
 
 **Examples:**
-- `payment.ledger.download` - Download employer payment history
-- `payment.details.read` - View payment record content
-- `worker.manage` - Create/update worker profiles
-- `user.manage` - Assign roles to users
+- `user.account.create` - Create new user accounts
+- `user.account.read` - View user information
+- `user.account.update` - Modify user details
+- `user.account.delete` - Delete/disable users
+- `rbac.policy.manage` - Manage authorization policies
 
-**Typical Count:** 50-100+ capabilities per organization
+**Typical Count:** 91 capabilities in bootstrap (can grow to 100+)
+
+---
+
+### 🔗 **auth.page_actions** - UI Action Bindings
+Links UI actions to both capabilities (permissions) and endpoints (API calls). **Dual-purpose table**.
+
+| Column | Type | Purpose |
+| --- | --- | --- |
+| `id` | BIGINT | Primary key |
+| `page_id` | INTEGER | FK to ui_pages (which page) |
+| `label` | VARCHAR | Button/action label (e.g., "Edit User") |
+| `action` | VARCHAR | Action type (CREATE, UPDATE, DELETE, etc.) |
+| `capability_id` | BIGINT | FK to capabilities (permission check) |
+| `endpoint_id` | BIGINT | FK to endpoints (API call target) |
+| `icon` | VARCHAR | Icon name for UI |
+| `variant` | VARCHAR | Button style (default, success, danger, etc.) |
+
+**Dual Purpose:**
+1. **Permission Check**: `capability_id` → Does user have this capability?
+2. **API Binding**: `endpoint_id` → Which endpoint to call when clicked?
+
+**Example:**
+```sql
+-- "Edit User" button on User Management page
+INSERT INTO auth.page_actions (page_id, label, capability_id, endpoint_id)
+VALUES (
+  2,                          -- User Management page
+  'Edit User',
+  3,                          -- capability: user.account.update
+  71                          -- endpoint: PUT /api/auth/users/{userId}
+);
+```
+
+**Frontend Flow:**
+```
+GET /api/meta/endpoints?page_id=2
+  ↓
+Returns page_actions WHERE user has capability_id
+  ↓
+Frontend renders buttons with endpoint_id for API calls
+```
 
 ---
 
@@ -105,52 +158,54 @@ Every API endpoint that needs protection is registered here. Defines method + pa
 
 | Column | Type | Purpose |
 | --- | --- | --- |
-| `id` | UUID | Primary key |
-| `method` | ENUM | GET, POST, PUT, DELETE, PATCH |
-| `path` | TEXT | Route pattern (e.g., /api/admin/capabilities) |
-| `label` | TEXT | Human description |
-| `is_public` | BOOLEAN | No auth required? |
+| `id` | BIGINT | Primary key |
+| `service` | VARCHAR | Service name (AUTH, ADMIN, INTERNAL) |
+| `version` | VARCHAR | API version (v1, v2) |
+| `method` | VARCHAR | GET, POST, PUT, DELETE, PATCH |
+| `path` | VARCHAR | Route pattern (e.g., /api/auth/users/{userId}) |
+| `description` | TEXT | Human description |
+| `ui_type` | VARCHAR | UI interaction type (ACTION, LIST, FORM, etc.) |
+| `is_active` | BOOLEAN | Enable/disable endpoint |
 | `created_at` | TIMESTAMP | Audit |
+| `updated_at` | TIMESTAMP | Last modified |
 
 **Examples:**
-- GET `/api/payment-requests` → requires payment.details.read
-- POST `/api/admin/users` → requires user.manage
-- GET `/health` → public, no auth
+- GET `/api/auth/users` → List all users (endpoint_id: 5)
+- POST `/api/auth/users` → Create new user (endpoint_id: 3)
+- PUT `/api/auth/users/{userId}` → Update user (endpoint_id: 71)
+- DELETE `/api/auth/users/{userId}` → Delete user (endpoint_id: 72)
+
+**Bootstrap Setup:** 72 endpoints registered
+- AUTH service: 14 endpoints
+- ADMIN service: 51 endpoints  
+- INTERNAL service: 5 endpoints
 
 ---
 
 ### 🔐 **auth.ui_pages** - Front-End Surfaces
-Pages/sections in the UI. Linked to capabilities so the UI can show/hide sections.
+Pages/sections in the UI. Organized hierarchically with parent-child relationships.
 
 | Column | Type | Purpose |
 | --- | --- | --- |
-| `id` | UUID | Primary key |
-| `code` | TEXT | Identifier (e.g., EMPLOYER_DASHBOARD) |
-| `label` | TEXT | Display name |
-| `description` | TEXT | Purpose |
-| `route` | TEXT | URL path |
-| `is_active` | BOOLEAN | Show in navigation? |
+| `id` | BIGINT | Primary key |
+| `page_id` | VARCHAR | Unique identifier (e.g., user-mgmt, role-mgmt) |
+| `label` | VARCHAR | Display name |
+| `route` | VARCHAR | URL path |
+| `icon` | VARCHAR | Icon name for navigation |
+| `module` | VARCHAR | Module grouping |
+| `parent_id` | BIGINT | FK to ui_pages (for hierarchy) |
+| `display_order` | INTEGER | Menu ordering |
+| `is_menu_item` | BOOLEAN | Show in navigation? |
+| `is_active` | BOOLEAN | Enable/disable page |
+| `required_capability` | VARCHAR | Optional capability for page access |
 
 **Examples:**
-- EMPLOYER_DASHBOARD → /dashboard/employer (requires capability payment.view)
-- ADMIN_PANEL → /admin (requires capability admin.access)
+- Dashboard (page_id: dashboard) → `/admin/dashboard`
+- User Management (page_id: user-mgmt) → `/admin/users`
+- Role Management (page_id: role-mgmt) → `/admin/roles`
+- Policy Management (page_id: policy-mgmt) → `/admin/policies`
 
----
-
-### 🔘 **auth.ui_actions** - Interactive Elements
-Buttons, links, menu items in the UI. Linked to capabilities for conditional rendering.
-
-| Column | Type | Purpose |
-| --- | --- | --- |
-| `id` | UUID | Primary key |
-| `code` | TEXT | Component ID (e.g., BTN_DOWNLOAD_LEDGER) |
-| `label` | TEXT | Button text |
-| `description` | TEXT | Tooltip/help text |
-| `is_active` | BOOLEAN | Show by default? |
-
-**Examples:**
-- BTN_DOWNLOAD_LEDGER → "Download" button (requires payment.ledger.download)
-- BTN_EXPORT_CSV → "Export" button (requires payment.export)
+**Bootstrap Setup:** 10 UI pages with 16 page actions
 
 ---
 
@@ -159,16 +214,19 @@ Defines which organizations/employers a user can access. Powers Row-Level Securi
 
 | Column | Type | Purpose |
 | --- | --- | --- |
-| `user_id` | UUID | Foreign key to auth.users |
-| `employer_id` | UUID | Organization the user belongs to |
-| `board_id` | UUID | (Optional) Board the user serves |
-| `scope_type` | ENUM | ORGANIZATION, BOARD, DIVISION |
+| `id` | BIGINT | Primary key |
+| `user_id` | BIGINT | Foreign key to auth.users |
+| `board_id` | VARCHAR | Board identifier (e.g., 'BOARD_001') |
+| `employer_id` | VARCHAR | Organization identifier (nullable) |
+| `can_read` | BOOLEAN | Read access flag |
+| `can_write` | BOOLEAN | Write access flag |
 | `created_at` | TIMESTAMP | Audit |
+| `updated_at` | TIMESTAMP | Last modified |
 
 **Example:**
-- worker.demo can only see data from employer_id=5 (ACME Inc)
-- employer.acme can see all workers in employer_id=5
-- board.member can see reports across multiple employers
+- worker.demo can only see data where board_id='BOARD_001'
+- employer.acme can see all workers in board_id='BOARD_001', employer_id='EMP_001'
+- board.member can see reports across all employers in their board
 
 ---
 
@@ -177,19 +235,18 @@ Defines which organizations/employers a user can access. Powers Row-Level Securi
 ### **auth.user_roles** - User ↔ Role Assignment
 Who has which role (many-to-many).
 
-```
-user.demo → [user_roles] → WORKER role
-user.demo → [user_roles] → TEST_USER role
-```
-
----
-
-### **auth.role_policies** - Role ↔ Policy Activation
-Which policies activate with each role.
+| Column | Type | Purpose |
+| --- | --- | --- |
+| `id` | BIGINT | Primary key |
+| `user_id` | BIGINT | FK to users |
+| `role_id` | BIGINT | FK to roles |
+| `created_at` | TIMESTAMP | Audit |
 
 ```
-WORKER role → [role_policies] → WORKER_POLICY
-EMPLOYER role → [role_policies] → EMPLOYER_POLICY
+business.admin → [user_roles] → BASIC_USER role
+business.admin → [user_roles] → BUSINESS_ADMIN role
+tech.bootstrap → [user_roles] → BASIC_USER role
+tech.bootstrap → [user_roles] → TECHNICAL_BOOTSTRAP role
 ```
 
 ---
@@ -197,29 +254,84 @@ EMPLOYER role → [role_policies] → EMPLOYER_POLICY
 ### **auth.policy_capabilities** - Policy ↔ Capability Bundle
 Which capabilities are inside each policy.
 
+| Column | Type | Purpose |
+| --- | --- | --- |
+| `id` | BIGINT | Primary key |
+| `policy_id` | BIGINT | FK to policies |
+| `capability_id` | BIGINT | FK to capabilities |
+
 ```
-WORKER_POLICY → [policy_capabilities] → payment.details.read
-WORKER_POLICY → [policy_capabilities] → payment.submit
+USER_ACCOUNT_MANAGE_POLICY → [policy_capabilities] → user.account.create
+USER_ACCOUNT_MANAGE_POLICY → [policy_capabilities] → user.account.read
+USER_ACCOUNT_MANAGE_POLICY → [policy_capabilities] → user.account.update
+USER_ACCOUNT_MANAGE_POLICY → [policy_capabilities] → user.account.delete
 ```
+
+**Bootstrap Setup:** 56 policy-capability links
 
 ---
 
 ### **auth.endpoint_policies** - Endpoint ↔ Policy Guard
 Which policies protect which endpoints.
 
+| Column | Type | Purpose |
+| --- | --- | --- |
+| `id` | BIGINT | Primary key |
+| `endpoint_id` | BIGINT | FK to endpoints |
+| `policy_id` | BIGINT | FK to policies |
+
 ```
-GET /api/payments/123 → [endpoint_policies] → WORKER_POLICY (requires it)
-POST /api/admin/users → [endpoint_policies] → ADMIN_POLICY (requires it)
+GET /api/auth/users → [endpoint_policies] → USER_ACCOUNT_MANAGE_POLICY
+PUT /api/auth/users/{userId} → [endpoint_policies] → USER_ACCOUNT_MANAGE_POLICY
+DELETE /api/auth/users/{userId} → [endpoint_policies] → USER_ACCOUNT_MANAGE_POLICY
 ```
+
+**Bootstrap Setup:** 72 endpoint-policy links (one per endpoint)
 
 ---
 
-### **auth.ui_page_capabilities** & **auth.ui_action_capabilities**
-Which capabilities unlock which UI elements.
+## Authorization Resolution
 
+### Backend: "Can user X call endpoint Y?"
+```sql
+-- Check if user's roles grant access to an endpoint
+SELECT EXISTS(
+  SELECT 1
+  FROM auth.users u
+  JOIN auth.user_roles ur ON u.id = ur.user_id
+  JOIN auth.roles r ON ur.role_id = r.id
+  JOIN auth.policies p ON p.expression->>'roles' ? r.name
+  JOIN auth.endpoint_policies ep ON p.id = ep.policy_id
+  JOIN auth.endpoints e ON ep.endpoint_id = e.id
+  WHERE u.id = :userId
+    AND e.method = 'PUT'
+    AND e.path = '/api/auth/users/{userId}'
+) as has_access;
 ```
-DASHBOARD page → [ui_page_capabilities] → payment.view (show if user has it)
-"Download" button → [ui_action_capabilities] → payment.export (enable if user has it)
+
+### Frontend: "What actions can user X perform on page Y?"
+```sql
+-- Get available page actions for a user
+SELECT 
+  pa.id,
+  pa.label,
+  pa.action,
+  c.name as capability,
+  e.method,
+  e.path
+FROM auth.page_actions pa
+JOIN auth.capabilities c ON pa.capability_id = c.id
+JOIN auth.endpoints e ON pa.endpoint_id = e.id
+WHERE pa.page_id = :pageId
+  AND EXISTS(
+    SELECT 1
+    FROM auth.user_roles ur
+    JOIN auth.roles r ON ur.role_id = r.id
+    JOIN auth.policies p ON p.expression->>'roles' ? r.name
+    JOIN auth.policy_capabilities pc ON p.id = pc.policy_id
+    WHERE ur.user_id = :userId
+      AND pc.capability_id = pa.capability_id
+  );
 ```
 
 ---

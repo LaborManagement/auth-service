@@ -48,13 +48,34 @@ Key questions answered here: *Is the caller who they claim to be?* and *Is the t
 
 ## Authorization Components
 
-1. **Role Resolution** – `auth.user_role` links users (or service accounts) to their badges.
-2. **Policy Selection** – `auth.endpoint_policy` matches the HTTP method+path to a policy.
-3. **Capability Check** – `auth.policy_capability` proves the policy carries the required permission.
-4. **UI Matrix** – `/api/me/authorizations` exposes the same capabilities so the front-end hides or shows buttons accordingly.
-5. **Row-Level Security** – `auth.set_user_context` and table policies filter data to the user’s tenant scope.
+### Backend Security (API Authorization)
+1. **Role Resolution** – `auth.user_roles` links users to their assigned roles.
+2. **Policy Selection** – `auth.endpoint_policies` matches the HTTP method+path to policies.
+3. **Capability Check** – `auth.policy_capabilities` proves the policy carries the required permission.
+4. **Endpoint Protection** – Only requests with matching capabilities can execute the endpoint.
 
-Only when every component agrees does the request succeed.
+### Frontend Visibility (UI Authorization)
+1. **Page Actions** – `auth.page_actions` define UI buttons/actions with both:
+   - `capability_id`: Permission check (what the user can do)
+   - `endpoint_id`: API binding (which endpoint to call)
+2. **UI Matrix** – `/api/meta/endpoints?page_id={id}` returns available endpoints for a page.
+3. **Dynamic UI** – Frontend shows/hides buttons based on user's capabilities.
+
+### Dual Relationship Model
+```
+Backend Authorization:
+User → Role → Policy → Capability ↔ Endpoint (via endpoint_policies)
+
+Frontend UI Binding:
+PageAction → Capability (permission check)
+PageAction → Endpoint (API call target)
+```
+
+**Key Insight:** `page_actions` serves dual purpose:
+- `capability_id`: Determines if user has permission
+- `endpoint_id`: Determines which API to call when button is clicked
+
+Only when both the capability check passes AND the endpoint authorization succeeds does the action complete.
 
 ## Request Lifecycle Snapshot
 
@@ -71,11 +92,12 @@ sequenceDiagram
     AuthService->>AuthService: Validate JWT signature & expiry
     AuthService->>PolicyDb: Load roles & policy requirements
     PolicyDb-->>AuthService: Capabilities + tenant rules
+    AuthService->>PolicyDb: Check endpoint_policies
     AuthService->>DataDb: SELECT auth.set_user_context(user_id)
     AuthService->>DataDb: Execute business query
     DataDb-->>AuthService: Rows filtered by RLS
     AuthService-->>Client: 200 / 403 / 404
-```
+````
 
 - **200 OK** – Capability and RLS checks pass.
 - **403 Forbidden** – Capability check fails.

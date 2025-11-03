@@ -65,16 +65,38 @@
 ### `auth.page_actions` Table
 - **action:** Action type (CREATE, READ, UPDATE, DELETE, APPROVE, REJECT, etc.)
 - **variant:** UI styling variant (default, success, danger, warning, info)
-- **capability_id:** Foreign key - action requires this capability
+- **capability_id:** Foreign key - action requires this capability (permission check)
 - **page_id:** Foreign key - which page this action appears on
-- **endpoint_id:** Optional FK - which backend endpoint to call
+- **endpoint_id:** Foreign key - which backend endpoint to call when action is triggered (API binding)
+
+**Dual Purpose:**
+1. **Permission Check:** `capability_id` determines if user can see the action
+2. **API Binding:** `endpoint_id` specifies which API to call when clicked
+
+**Example:**
+```sql
+-- Edit User action
+INSERT INTO auth.page_actions (label, action, capability_id, page_id, endpoint_id)
+VALUES (
+  'Edit User',           -- Button label
+  'UPDATE',              -- Action type
+  3,                     -- capability_id: user.account.update
+  2,                     -- page_id: User Management page
+  71                     -- endpoint_id: PUT /api/auth/users/{userId}
+);
+```
 
 ### `auth.endpoints` Table
-- **service:** Service name (e.g., 'auth', 'payment', 'worker')
+- **service:** Service name (e.g., 'AUTH', 'ADMIN', 'INTERNAL')
 - **version:** API version (e.g., 'v1', 'v2')
 - **method:** HTTP method (GET, POST, PUT, DELETE, PATCH)
-- **path:** URL path (e.g., '/api/auth/users', '/api/admin/users')
+- **path:** URL path (e.g., '/api/auth/users', '/api/auth/users/{userId}')
 - **ui_type:** How used in UI (ACTION, LIST, FORM, UPLOAD, etc.)
+
+**Bootstrap Endpoints:** 72 total
+- AUTH service: 14 endpoints (includes user CRUD)
+- ADMIN service: 51 endpoints (role/policy/capability management)
+- INTERNAL service: 5 endpoints (system operations)
 
 ---
 
@@ -96,8 +118,70 @@ Capability (capabilities)
   ├─ M:N→ Policy (policy_capabilities)
   └─ 1:N→ PageAction (page_actions.capability_id)
 
+Endpoint (endpoints)
+  ├─ M:N→ Policy (endpoint_policies)
+  └─ 1:N→ PageAction (page_actions.endpoint_id)
+
 UIPage (ui_pages)
   ├─ 1:N→ UIPage (parent_id - self-referential for hierarchy)
+  └─ 1:N→ PageAction (page_actions.page_id)
+
+PageAction (page_actions)
+  ├─ N:1→ UIPage (page_id)
+  ├─ N:1→ Capability (capability_id)
+  └─ N:1→ Endpoint (endpoint_id)
+```
+
+---
+
+## 🔄 Authorization Flow
+
+### Backend Authorization (API Security)
+```
+HTTP Request
+  ↓
+JWT Validation
+  ↓
+User → user_roles → Role
+  ↓
+Policy (expression.roles match)
+  ↓
+policy_capabilities → Capability
+  ↓
+endpoint_policies → Endpoint
+  ↓
+Allow/Deny
+```
+
+### Frontend Authorization (UI Visibility)
+```
+Page Load
+  ↓
+GET /api/meta/endpoints?page_id={id}
+  ↓
+Query: page_actions WHERE:
+  - user has capability_id
+  - endpoint_id is not null
+  ↓
+Return available actions + endpoints
+  ↓
+Render buttons with API bindings
+```
+
+### Complete Chain (Button Click)
+```
+User clicks "Edit User" button
+  ↓
+Frontend checks: page_actions.capability_id (user.account.update)
+  ↓ (User has capability? Yes)
+Frontend calls: page_actions.endpoint_id → PUT /api/auth/users/{userId}
+  ↓
+Backend checks: endpoint_policies (USER_ACCOUNT_MANAGE_POLICY)
+  ↓
+Backend verifies: User's roles → policies → capabilities match
+  ↓
+Success ✓
+```
   └─ 1:N→ PageAction (page_actions.page_id)
 
 PageAction (page_actions)
