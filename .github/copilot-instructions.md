@@ -166,7 +166,7 @@ mvn clean package spring-boot:repackage
 
 ### Running Tests
 
-- All tests use **H2 in-memory database** (configured in `application-test.yml`)
+- Tests should use an in-memory database or appropriate mocking for database interactions
 - Mock external dependencies using **Mockito**
 - Write tests for:
   - Service layer business logic
