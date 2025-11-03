@@ -15,8 +15,11 @@ import com.shared.entityaudit.listener.SharedEntityAuditListener;
 
 /**
  * Represents an authorization policy in the system.
- * Policies define WHO can perform actions (role-based rules).
- * Contains JSON expression for complex authorization logic.
+ * Policies define WHAT capabilities are granted.
+ * Assigned to roles via the role_policies junction table (RolePolicy entity).
+ * 
+ * Migration Note: The 'expression' JSON field has been removed. 
+ * Role assignments are now handled through the RolePolicy relationship.
  */
 @Entity
 @EntityAuditEnabled
@@ -37,9 +40,34 @@ public class Policy extends AbstractAuditableEntity<Long> {
     @Column(nullable = false, length = 20)
     private String type; // RBAC, ABAC, CUSTOM
 
+    /**
+     * DEPRECATED: JSON expression field - will be removed after migration.
+     * Use RolePolicy relationship instead.
+     * NOTE: Column has been renamed to 'expression_deprecated' in the database.
+     * @deprecated Use {@link RolePolicy} for role-policy assignments
+     */
+    @Deprecated(since = "2.0", forRemoval = true)
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false, columnDefinition = "jsonb")
-    private String expression; // JSON expression for policy evaluation
+    @Column(name = "expression_deprecated", columnDefinition = "jsonb")
+    private String expression;
+
+    /**
+     * Policy type for fine-grained categorization
+     * Examples: PERMISSION, CONDITIONAL, ROW_LEVEL, TIME_BASED
+     */
+    @Column(name = "policy_type", length = 50)
+    private String policyType = "PERMISSION";
+
+    /**
+     * Optional ABAC conditions for advanced authorization scenarios
+     * Examples:
+     * - {"tenant_id": 123} - Tenant-specific policy
+     * - {"time_range": "09:00-17:00"} - Time-based access
+     * - {"ip_whitelist": ["192.168.1.0/24"]} - IP-based restrictions
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "conditions", columnDefinition = "jsonb")
+    private String conditions;
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
@@ -50,18 +78,51 @@ public class Policy extends AbstractAuditableEntity<Long> {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // Many-to-Many relationship with Capability
+    // Relationship with Capability (Policy grants Capabilities)
     @OneToMany(mappedBy = "policy", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<PolicyCapability> policyCapabilities = new HashSet<>();
+
+    // Relationship with Role (Policies are assigned to Roles)
+    @OneToMany(mappedBy = "policy", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private Set<RolePolicy> rolePolicies = new HashSet<>();
 
     public Policy() {
     }
 
+    /**
+     * Constructor for creating a policy with expression (deprecated).
+     * @deprecated Use constructor without expression parameter
+     */
+    @Deprecated(since = "2.0", forRemoval = true)
     public Policy(String name, String description, String type, String expression) {
         this.name = name;
         this.description = description;
         this.type = type;
         this.expression = expression;
+        this.isActive = true;
+    }
+
+    /**
+     * Constructor for creating a policy with policy type
+     */
+    public Policy(String name, String description, String type) {
+        this.name = name;
+        this.description = description;
+        this.type = type;
+        this.policyType = "PERMISSION";
+        this.isActive = true;
+    }
+
+    /**
+     * Full constructor with policy type and conditions
+     */
+    public Policy(String name, String description, String type, String policyType, String conditions) {
+        this.name = name;
+        this.description = description;
+        this.type = type;
+        this.policyType = policyType;
+        this.conditions = conditions;
         this.isActive = true;
     }
 
@@ -109,12 +170,36 @@ public class Policy extends AbstractAuditableEntity<Long> {
         this.type = type;
     }
 
+    /**
+     * @deprecated Use RolePolicy relationship instead
+     */
+    @Deprecated(since = "2.0", forRemoval = true)
     public String getExpression() {
         return expression;
     }
 
+    /**
+     * @deprecated Use RolePolicy relationship instead
+     */
+    @Deprecated(since = "2.0", forRemoval = true)
     public void setExpression(String expression) {
         this.expression = expression;
+    }
+
+    public String getPolicyType() {
+        return policyType;
+    }
+
+    public void setPolicyType(String policyType) {
+        this.policyType = policyType;
+    }
+
+    public String getConditions() {
+        return conditions;
+    }
+
+    public void setConditions(String conditions) {
+        this.conditions = conditions;
     }
 
     public Boolean getIsActive() {
@@ -149,6 +234,24 @@ public class Policy extends AbstractAuditableEntity<Long> {
         this.policyCapabilities = policyCapabilities;
     }
 
+    public Set<RolePolicy> getRolePolicies() {
+        return rolePolicies;
+    }
+
+    public void setRolePolicies(Set<RolePolicy> rolePolicies) {
+        this.rolePolicies = rolePolicies;
+    }
+
+    /**
+     * Helper method to get all roles assigned to this policy
+     */
+    public Set<Role> getRoles() {
+        return rolePolicies.stream()
+                .filter(rp -> rp.getIsActive())
+                .map(RolePolicy::getRole)
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
     @Override
     public String entityType() {
         return "POLICY";
@@ -163,7 +266,8 @@ public class Policy extends AbstractAuditableEntity<Long> {
                 "name", name,
                 "description", description,
                 "type", type,
-                "expression", expression,
+                "policyType", policyType,
+                "conditions", conditions,
                 "isActive", isActive,
                 "createdAt", createdAt != null ? createdAt.toString() : null,
                 "updatedAt", updatedAt != null ? updatedAt.toString() : null

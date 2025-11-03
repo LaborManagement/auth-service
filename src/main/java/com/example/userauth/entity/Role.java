@@ -50,6 +50,11 @@ public class Role extends AbstractAuditableEntity<Long> {
     @JsonIgnore // prevent infinite recursion during serialization
     private Set<User> users = new HashSet<>();
     
+    // One-to-Many relationship with Policy through role_policies junction table
+    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore // prevent circular serialization
+    private Set<RolePolicy> rolePolicies = new HashSet<>();
+    
     @Transient
     private Set<String> capabilityNames = new HashSet<>();
 
@@ -124,6 +129,24 @@ public class Role extends AbstractAuditableEntity<Long> {
         this.users = users;
     }
 
+    public Set<RolePolicy> getRolePolicies() {
+        return rolePolicies;
+    }
+
+    public void setRolePolicies(Set<RolePolicy> rolePolicies) {
+        this.rolePolicies = rolePolicies;
+    }
+
+    /**
+     * Helper method to get all active policies assigned to this role
+     */
+    public Set<Policy> getPolicies() {
+        return rolePolicies.stream()
+                .filter(rp -> rp.getIsActive())
+                .map(RolePolicy::getPolicy)
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
     public Set<String> getCapabilityNames() {
         return capabilityNames;
     }
@@ -149,6 +172,32 @@ public class Role extends AbstractAuditableEntity<Long> {
     public void removeUser(User user) {
         this.users.remove(user);
         user.getRoles().remove(this);
+    }
+
+    /**
+     * Helper method to assign a policy to this role
+     */
+    public void addPolicy(Policy policy) {
+        RolePolicy rolePolicy = new RolePolicy(this, policy);
+        this.rolePolicies.add(rolePolicy);
+        policy.getRolePolicies().add(rolePolicy);
+    }
+
+    /**
+     * Helper method to assign a policy to this role with audit info
+     */
+    public void addPolicy(Policy policy, User assignedBy) {
+        RolePolicy rolePolicy = new RolePolicy(this, policy, assignedBy);
+        this.rolePolicies.add(rolePolicy);
+        policy.getRolePolicies().add(rolePolicy);
+    }
+
+    /**
+     * Helper method to remove a policy from this role
+     */
+    public void removePolicy(Policy policy) {
+        rolePolicies.removeIf(rp -> rp.getPolicy().equals(policy));
+        policy.getRolePolicies().removeIf(rp -> rp.getRole().equals(this));
     }
     
     @PrePersist

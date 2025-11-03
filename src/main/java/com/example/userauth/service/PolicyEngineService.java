@@ -2,6 +2,7 @@ package com.example.userauth.service;
 
 import com.example.userauth.entity.Policy;
 import com.example.userauth.repository.PolicyRepository;
+import com.example.userauth.repository.RolePolicyRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -13,6 +14,9 @@ import java.util.Set;
 
 /**
  * Policy Engine Service - Evaluates RBAC policies for authorization decisions
+ * 
+ * Updated to use RolePolicy junction table instead of JSON expression evaluation.
+ * Now policies are directly assigned to roles via the role_policies table.
  */
 @Service
 public class PolicyEngineService {
@@ -20,33 +24,57 @@ public class PolicyEngineService {
     private static final Logger logger = LoggerFactory.getLogger(PolicyEngineService.class);
     
     private final PolicyRepository policyRepository;
+    private final RolePolicyRepository rolePolicyRepository;
     private final ObjectMapper objectMapper;
 
-    public PolicyEngineService(PolicyRepository policyRepository, ObjectMapper objectMapper) {
+    public PolicyEngineService(PolicyRepository policyRepository, 
+                               RolePolicyRepository rolePolicyRepository,
+                               ObjectMapper objectMapper) {
         this.policyRepository = policyRepository;
+        this.rolePolicyRepository = rolePolicyRepository;
         this.objectMapper = objectMapper;
     }
 
     /**
      * Evaluate if user with given roles can access an endpoint
      * 
+     * NEW APPROACH: Check if any of the user's roles have policies that grant access to this endpoint.
+     * 
      * @param endpointId The endpoint to check access for
      * @param userRoles The roles the user has
      * @return true if access is granted, false otherwise
      */
     public boolean evaluateEndpointAccess(Long endpointId, Set<String> userRoles) {
-        List<Policy> policies = policyRepository.findByEndpointId(endpointId);
+        if (userRoles == null || userRoles.isEmpty()) {
+            logger.debug("No roles provided for endpoint access check");
+            return false;
+        }
+
+        // Get all policies assigned to the user's roles
+        List<Policy> userPolicies = rolePolicyRepository.findPoliciesByRoleNames(
+                userRoles.stream().toList());
         
-        if (policies.isEmpty()) {
+        if (userPolicies.isEmpty()) {
+            logger.debug("No policies found for roles: {}", userRoles);
+            return false;
+        }
+
+        // Get policies that grant access to this specific endpoint
+        List<Policy> endpointPolicies = policyRepository.findByEndpointId(endpointId);
+        
+        if (endpointPolicies.isEmpty()) {
             logger.warn("No policies found for endpoint ID: {}", endpointId);
             return false;
         }
 
-        // Evaluate each policy - if ANY policy grants access, allow
-        for (Policy policy : policies) {
-            if (evaluatePolicy(policy, userRoles)) {
-                logger.debug("Access granted by policy: {} for endpoint: {}", policy.getName(), endpointId);
-                return true;
+        // Check if any of the user's policies match the endpoint's policies
+        for (Policy userPolicy : userPolicies) {
+            for (Policy endpointPolicy : endpointPolicies) {
+                if (userPolicy.getId().equals(endpointPolicy.getId()) && userPolicy.getIsActive()) {
+                    logger.debug("Access granted by policy: {} for endpoint: {}", 
+                            userPolicy.getName(), endpointId);
+                    return true;
+                }
             }
         }
 
@@ -67,18 +95,24 @@ public class PolicyEngineService {
         // For now, allow all authenticated users to access pages
         // Real authorization happens at the action level via capabilities
         logger.debug("Page access evaluation for pageId: {} with roles: {}", pageId, userRoles);
-        return !userRoles.isEmpty();
+        return userRoles != null && !userRoles.isEmpty();
     }
 
     /**
-     * Evaluate a single policy against user roles
-     * 
-     * @param policy The policy to evaluate
-     * @param userRoles The roles the user has
-     * @return true if policy grants access, false otherwise
+     * DEPRECATED: Old expression-based policy evaluation
+     * Kept for backward compatibility during migration period.
+     * @deprecated Use role-based policy assignment via RolePolicy instead
      */
+    @Deprecated(since = "2.0", forRemoval = true)
     private boolean evaluatePolicy(Policy policy, Set<String> userRoles) {
         try {
+            // Only use this if expression field still exists (backward compatibility)
+            if (policy.getExpression() == null) {
+                logger.warn("Policy {} has no expression - use RolePolicy assignment instead", 
+                        policy.getName());
+                return false;
+            }
+            
             JsonNode policyExpression = objectMapper.readTree(policy.getExpression());
             
             // Handle RBAC policy type
@@ -102,14 +136,10 @@ public class PolicyEngineService {
     }
 
     /**
-     * Evaluate RBAC policy expression
-     * Expected format: {"roles": ["ADMIN", "RECONCILIATION_OFFICER"]}
-     * Logic: User must have at least one of the specified roles (OR logic)
-     * 
-     * @param policyExpression The JSON policy expression
-     * @param userRoles The roles the user has
-     * @return true if user has any of the required roles
+     * DEPRECATED: Old RBAC policy expression evaluation
+     * @deprecated Use role-based policy assignment via RolePolicy instead
      */
+    @Deprecated(since = "2.0", forRemoval = true)
     private boolean evaluateRBACPolicy(JsonNode policyExpression, Set<String> userRoles) {
         if (!policyExpression.has("roles")) {
             logger.warn("RBAC policy missing 'roles' field");

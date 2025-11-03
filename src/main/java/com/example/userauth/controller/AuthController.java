@@ -150,16 +150,17 @@ public class AuthController {
     @ApiResponse(responseCode = "200", description = "Users retrieved successfully")
     @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
     @Auditable(action = "GET_ALL_USERS", resourceType = "USER")
-    public ResponseEntity<List<User>> getAllUsers(HttpServletRequest request) {
+    public ResponseEntity<List<UserListResponse>> getAllUsers(HttpServletRequest request) {
         List<User> users = authService.getAllUsers();
+        List<UserListResponse> userResponses = authService.convertToUserListResponse(users);
         try {
-            String responseJson = objectMapper.writeValueAsString(users);
+            String responseJson = objectMapper.writeValueAsString(userResponses);
             String eTag = ETagUtil.generateETag(responseJson);
             String ifNoneMatch = request.getHeader(HttpHeaders.IF_NONE_MATCH);
             if (eTag.equals(ifNoneMatch)) {
                 return ResponseEntity.status(304).eTag(eTag).build();
             }
-            return ResponseEntity.ok().eTag(eTag).body(users);
+            return ResponseEntity.ok().eTag(eTag).body(userResponses);
         } catch (Exception e) {
             logger.error("Error processing users response", e);
             return ResponseEntity.internalServerError().build();
@@ -170,18 +171,19 @@ public class AuthController {
     @GetMapping("/users/role/{role}")
     @Operation(summary = "Get users by role", description = "Get users filtered by role (Requires authentication)")
     @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
-    public ResponseEntity<List<User>> getUsersByRole(
+    public ResponseEntity<List<UserListResponse>> getUsersByRole(
         @Parameter(description = "User role") @PathVariable UserRole role,
         HttpServletRequest request) {
         List<User> users = authService.getUsersByRole(role);
+        List<UserListResponse> userResponses = authService.convertToUserListResponse(users);
         try {
-            String responseJson = objectMapper.writeValueAsString(users);
+            String responseJson = objectMapper.writeValueAsString(userResponses);
             String eTag = ETagUtil.generateETag(responseJson);
             String ifNoneMatch = request.getHeader(HttpHeaders.IF_NONE_MATCH);
             if (eTag.equals(ifNoneMatch)) {
                 return ResponseEntity.status(304).eTag(eTag).build();
             }
-            return ResponseEntity.ok().eTag(eTag).body(users);
+            return ResponseEntity.ok().eTag(eTag).body(userResponses);
         } catch (Exception e) {
             logger.error("Error processing users by role response", e);
             return ResponseEntity.internalServerError().build();

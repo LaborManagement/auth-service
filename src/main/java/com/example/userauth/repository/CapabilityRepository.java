@@ -80,11 +80,15 @@ public interface CapabilityRepository extends JpaRepository<Capability, Long> {
     
     /**
      * Find capability names granted to a specific role through policies
+     * Updated to use the role_policies junction table instead of deprecated expression field
      */
     @Query("SELECT DISTINCT c.name FROM Capability c " +
            "JOIN PolicyCapability pc ON pc.capability.id = c.id " +
            "JOIN Policy p ON p.id = pc.policy.id " +
-           "WHERE CAST(p.expression AS string) LIKE CONCAT('%', :roleName, '%') " +
+           "JOIN RolePolicy rp ON rp.policy.id = p.id " +
+           "JOIN Role r ON r.id = rp.role.id " +
+           "WHERE r.name = :roleName " +
+           "AND rp.isActive = true " +
            "AND p.isActive = true " +
            "AND c.isActive = true")
     List<String> findCapabilityNamesByRoleName(@Param("roleName") String roleName);

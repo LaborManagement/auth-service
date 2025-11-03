@@ -4,6 +4,7 @@ import com.example.userauth.dto.AuthResponse;
 import com.example.userauth.dto.LoginRequest;
 import com.example.userauth.dto.RegisterRequest;
 import com.example.userauth.dto.UpdateUserRequest;
+import com.example.userauth.dto.UserListResponse;
 import com.example.userauth.entity.Role;
 import com.example.userauth.entity.User;
 import com.example.userauth.entity.UserRole;
@@ -208,22 +209,22 @@ public class AuthService {
         return Optional.empty();
     }
     
-    // READ OPERATIONS - Using Query DAO
+    // READ OPERATIONS - Using JPA repository to load roles relationship
     @Transactional(readOnly = true)
     public List<User> getAllUsers() {
-        logger.debug("Fetching all users using query DAO");
-        return userQueryDao.findAll();
+        logger.debug("Fetching all users with roles");
+        return userRepository.findAll();
     }
     
     @Transactional(readOnly = true)
     public List<User> getUsersByRole(UserRole role) {
-        logger.debug("Fetching users by role: {} using query DAO", role);
-        return userQueryDao.findByRole(role);
+        logger.debug("Fetching users by role: {} with roles loaded", role);
+        return userRepository.findByRole(role);
     }
 
     @Transactional(readOnly = true)
     public List<User> getUsersByRoleName(String roleName) {
-        logger.debug("Fetching users by role name: {} using query DAO", roleName);
+        logger.debug("Fetching users by role name: {} with roles loaded", roleName);
         if (!StringUtils.hasText(roleName)) {
             return List.of();
         }
@@ -233,13 +234,13 @@ public class AuthService {
         String normalized = roleName.trim();
         try {
             UserRole legacyRole = UserRole.valueOf(normalized.toUpperCase(Locale.ROOT));
-            userQueryDao.findByRole(legacyRole)
+            userRepository.findByRole(legacyRole)
                     .forEach(user -> usersById.put(user.getId(), user));
         } catch (IllegalArgumentException ignored) {
             // Role name does not map to legacy enum; continue with capability-based lookup
         }
 
-        userQueryDao.findByRoleName(normalized)
+        userRepository.findByRoleName(normalized)
                 .forEach(user -> usersById.put(user.getId(), user));
 
         return List.copyOf(usersById.values());
@@ -481,6 +482,52 @@ public class AuthService {
         }
         
         return roles;
+    }
+    
+    /**
+     * Convert User entities to UserListResponse DTOs.
+     * This avoids Hibernate proxy serialization issues.
+     */
+    public List<UserListResponse> convertToUserListResponse(List<User> users) {
+        return users.stream()
+            .map(this::convertToUserListResponse)
+            .collect(Collectors.toList());
+    }
+    
+    /**
+     * Convert a single User entity to UserListResponse DTO.
+     */
+    private UserListResponse convertToUserListResponse(User user) {
+        Set<UserListResponse.RoleInfo> roleInfos = user.getRoles().stream()
+            .map(role -> {
+                Set<UserListResponse.PolicyInfo> policyInfos = role.getPolicies().stream()
+                    .map(policy -> new UserListResponse.PolicyInfo(
+                        policy.getId(),
+                        policy.getName(),
+                        policy.getDescription(),
+                        policy.getType()
+                    ))
+                    .collect(Collectors.toSet());
+                
+                return new UserListResponse.RoleInfo(
+                    role.getId(),
+                    role.getName(),
+                    role.getDescription(),
+                    policyInfos
+                );
+            })
+            .collect(Collectors.toSet());
+        
+        return new UserListResponse(
+            user.getId(),
+            user.getUsername(),
+            user.getEmail(),
+            user.getFullName(),
+            user.isEnabled(),
+            roleInfos,
+            user.getCreatedAt(),
+            user.getLastLogin()
+        );
     }
 
     public record RoleUpdateResult(Set<Long> roleIds, Set<String> roleNames) {}
