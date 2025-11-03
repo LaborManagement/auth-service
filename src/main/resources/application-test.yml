@@ -2,3 +2,16 @@
 # Auditing toggle
 auditing:
   enabled: true
+
+shared-lib:
+  entity-audit:
+    enabled: true
+    table-name: audit.entity_audit_event
+    service-name: auth-service
+    source-schema: auth
+    source-table: users
+  audit:
+    enabled: true
+    table-name: audit.audit_event
+    service-name: auth-service
+    source-schema: auth
