@@ -11,6 +11,7 @@ erDiagram
     "auth.users" ||--o{ "auth.user_roles" : "assigns"
     "auth.users" ||--o{ "auth.user_tenant_acl" : "scopes"
     "auth.roles" ||--o{ "auth.user_roles" : ""
+    "auth.roles" ||..o{ "auth.policies" : "referenced in expression"
     "auth.policies" ||--o{ "auth.policy_capabilities" : "bundles"
     "auth.capabilities" ||--o{ "auth.policy_capabilities" : ""
     "auth.endpoints" ||--o{ "auth.endpoint_policies" : "guarded by"
@@ -20,7 +21,23 @@ erDiagram
     "auth.page_actions" }o--|| "auth.endpoints" : "calls"
 ```
 
-**Note:** The current schema uses `policies.expression` (JSON with roles array) instead of a separate `role_policies` junction table.
+**Key Relationships:**
+- **Solid lines** (||--o{): Direct foreign key relationships in the database
+- **Dotted lines** (||..o{): Logical relationship via JSON field (policies.expression contains role names)
+
+**Policy-Role Binding:**
+Instead of a separate `role_policies` junction table, the relationship is stored in `policies.expression` as JSON:
+```json
+{
+  "name": "USER_ACCOUNT_MANAGE_POLICY",
+  "expression": {"roles": ["BUSINESS_ADMIN", "TECHNICAL_BOOTSTRAP"]}
+}
+```
+
+When checking permissions, the system:
+1. Gets user's roles from `user_roles`
+2. Finds policies where `expression->>'roles'` contains the user's role names
+3. Loads capabilities from those policies via `policy_capabilities`
 
 ## Entity Descriptions
 
@@ -84,7 +101,37 @@ Bundles of capabilities tied to roles. A policy says "if you have this role, you
 }
 ```
 
-**Role Resolution:** The `expression` field contains a JSON object with a `roles` array. Users with roles matching those in the array inherit all capabilities linked to this policy via `policy_capabilities`.
+**Role-Policy Relationship:**
+The `expression` field contains a JSON object with a `roles` array. This creates a logical link between roles and policies without a separate junction table.
+
+**How it works:**
+```sql
+-- Query: Which policies apply to a user with BUSINESS_ADMIN role?
+SELECT p.id, p.name
+FROM auth.policies p
+WHERE p.expression->>'roles' ? 'BUSINESS_ADMIN'
+  AND p.is_active = true;
+
+-- Result: USER_ACCOUNT_MANAGE_POLICY (and any other policies with BUSINESS_ADMIN in roles array)
+```
+
+**Complete Authorization Chain:**
+```
+User (business.admin)
+  ↓ user_roles
+Role (BUSINESS_ADMIN)
+  ↓ policies.expression->>'roles' contains 'BUSINESS_ADMIN'
+Policy (USER_ACCOUNT_MANAGE_POLICY)
+  ↓ policy_capabilities
+Capabilities (user.account.create, user.account.read, user.account.update, user.account.delete, ...)
+```
+
+**Bootstrap Examples:**
+| Policy | Roles in Expression | Capabilities Count |
+|--------|--------------------|--------------------|
+| BASIC_USER_POLICY | ["BASIC_USER"] | 2 |
+| USER_ACCOUNT_MANAGE_POLICY | ["BUSINESS_ADMIN", "TECHNICAL_BOOTSTRAP"] | 8 |
+| RBAC_FULL_POLICY | ["TECHNICAL_BOOTSTRAP"] | 20+ |
 
 ---
 
