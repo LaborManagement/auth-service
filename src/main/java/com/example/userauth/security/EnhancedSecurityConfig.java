@@ -1,9 +1,12 @@
 package com.example.userauth.security;
 
+import com.shared.security.rls.RLSContextFilter;
+import com.shared.security.rls.RLSContextManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -43,7 +46,21 @@ public class EnhancedSecurityConfig {
     private InternalApiAuthenticationFilter internalApiAuthenticationFilter;
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public RLSContextManager rlsContextManager(JdbcTemplate jdbcTemplate) {
+        RLSContextManager manager = new RLSContextManager();
+        // JdbcTemplate will be autowired into RLSContextManager by reflection
+        return manager;
+    }
+
+    @Bean
+    public RLSContextFilter rlsContextFilter(RLSContextManager rlsContextManager) {
+        RLSContextFilter filter = new RLSContextFilter();
+        // RLSContextManager will be autowired into the filter by reflection
+        return filter;
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http, RLSContextFilter rlsContextFilter) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
@@ -82,6 +99,9 @@ public class EnhancedSecurityConfig {
 
         // Add JWT token filter before UsernamePasswordAuthenticationFilter
         http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
+
+        // Add RLS context filter after authentication to set database context
+        http.addFilterAfter(rlsContextFilter, AuthTokenFilter.class);
 
         // Add security headers filter
         http.addFilterBefore(securityHeadersFilter, AuthTokenFilter.class);

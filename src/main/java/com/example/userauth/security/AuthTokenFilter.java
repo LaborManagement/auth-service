@@ -50,9 +50,21 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                String username = jwtUtils.getUserNameFromJwtToken(jwt);
+                // Extract user ID from token (more efficient than username lookup)
+                Long userId = jwtUtils.getUserIdFromToken(jwt);
                 
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                UserDetails userDetails;
+                if (userId != null) {
+                    // Prefer loading by ID - direct primary key lookup
+                    logger.debug("Loading user by ID from token: {}", userId);
+                    userDetails = userDetailsService.loadUserById(userId);
+                } else {
+                    // Fallback to username if ID not present (shouldn't happen with new tokens)
+                    logger.warn("Token missing user ID claim, falling back to username lookup");
+                    String username = jwtUtils.getUserNameFromJwtToken(jwt);
+                    userDetails = userDetailsService.loadUserByUsername(username);
+                }
+                
                 UsernamePasswordAuthenticationToken authentication = 
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

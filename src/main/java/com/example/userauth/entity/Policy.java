@@ -1,6 +1,8 @@
 package com.example.userauth.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Map;
@@ -35,7 +37,8 @@ public class Policy extends AbstractAuditableEntity<Long> {
     @Column(nullable = false, length = 20)
     private String type; // RBAC, ABAC, CUSTOM
 
-    @Column(nullable = false, columnDefinition = "JSON")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
     private String expression; // JSON expression for policy evaluation
 
     @Column(name = "is_active", nullable = false)

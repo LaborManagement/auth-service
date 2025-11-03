@@ -90,6 +90,15 @@ public interface PolicyRepository extends JpaRepository<Policy, Long> {
 
     Optional<Policy> findTopByOrderByIdDesc();
 
+    /**
+     * Find policy by ID with capabilities eagerly loaded
+     */
+    @Query("SELECT p FROM Policy p " +
+           "LEFT JOIN FETCH p.policyCapabilities pc " +
+           "LEFT JOIN FETCH pc.capability " +
+           "WHERE p.id = :id")
+    Optional<Policy> findByIdWithCapabilities(@Param("id") Long id);
+
     interface PolicyCapabilitySummary {
         Long getPolicyId();
         String getCapabilityName();

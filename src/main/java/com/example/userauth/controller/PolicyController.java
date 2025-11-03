@@ -90,7 +90,7 @@ public class PolicyController {
     @GetMapping("/{id}")
     @SuppressWarnings("unchecked")
     public ResponseEntity<Map<String, Object>> getPolicyById(@PathVariable Long id, HttpServletRequest request) {
-        return policyRepository.findById(id)
+        return policyRepository.findByIdWithCapabilities(id)
                 .map(policy -> {
                     Map<String, Object> response = convertToResponse(policy);
                     try {
@@ -138,7 +138,11 @@ public class PolicyController {
             assignCapabilities(saved.getId(), request.getCapabilityIds());
         }
         
-        return ResponseEntity.ok(convertToResponse(policyRepository.findById(saved.getId()).get()));
+        // Fetch the policy with capabilities eagerly loaded
+        Policy policyWithCapabilities = policyRepository.findByIdWithCapabilities(saved.getId())
+                .orElseThrow(() -> new RuntimeException("Policy not found after creation"));
+        
+        return ResponseEntity.ok(convertToResponse(policyWithCapabilities));
     }
 
     /**
@@ -194,7 +198,11 @@ public class PolicyController {
                         }
                     }
                     
-                    return ResponseEntity.ok(convertToResponse(policyRepository.findById(id).get()));
+                    // Fetch the policy with capabilities eagerly loaded
+                    Policy policyWithCapabilities = policyRepository.findByIdWithCapabilities(id)
+                            .orElseThrow(() -> new RuntimeException("Policy not found"));
+                    
+                    return ResponseEntity.ok(convertToResponse(policyWithCapabilities));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -267,7 +275,11 @@ public class PolicyController {
         
         assignCapabilities(id, request.getCapabilityIds());
         
-        return ResponseEntity.ok(convertToResponse(policyRepository.findById(id).get()));
+        // Fetch the policy with capabilities eagerly loaded
+        Policy policyWithCapabilities = policyRepository.findByIdWithCapabilities(id)
+                .orElseThrow(() -> new RuntimeException("Policy not found"));
+        
+        return ResponseEntity.ok(convertToResponse(policyWithCapabilities));
     }
 
     /**

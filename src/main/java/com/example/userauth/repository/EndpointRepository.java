@@ -72,4 +72,13 @@ public interface EndpointRepository extends JpaRepository<Endpoint, Long> {
      * Find all active endpoints ordered by service and version
      */
     List<Endpoint> findByIsActiveTrueOrderByServiceAscVersionAsc();
+
+    /**
+     * Find endpoint by ID with policies eagerly loaded
+     */
+    @Query("SELECT e FROM Endpoint e " +
+           "LEFT JOIN FETCH e.endpointPolicies ep " +
+           "LEFT JOIN FETCH ep.policy " +
+           "WHERE e.id = :id")
+    Optional<Endpoint> findByIdWithPolicies(@Param("id") Long id);
 }
