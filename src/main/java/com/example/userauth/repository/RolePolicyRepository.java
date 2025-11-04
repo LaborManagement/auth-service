@@ -113,6 +113,11 @@ public interface RolePolicyRepository extends JpaRepository<RolePolicy, Long> {
     void deleteByPolicyId(Long policyId);
 
     /**
+     * Fetch all active role-policy assignments
+     */
+    List<RolePolicy> findByIsActiveTrue();
+
+    /**
      * Find all policies for a list of role names (used in authorization)
      */
     @Query("SELECT DISTINCT rp.policy FROM RolePolicy rp " +

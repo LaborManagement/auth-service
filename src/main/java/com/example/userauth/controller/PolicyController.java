@@ -5,6 +5,7 @@ import com.example.userauth.entity.EndpointPolicy;
 import com.example.userauth.entity.Policy;
 import com.example.userauth.entity.Role;
 import com.example.userauth.repository.EndpointPolicyRepository;
+import com.example.userauth.repository.EndpointRepository;
 import com.example.userauth.repository.PolicyRepository;
 import com.example.userauth.repository.RoleRepository;
 import com.example.userauth.repository.RolePolicyRepository;
@@ -18,6 +19,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,16 +50,19 @@ public class PolicyController {
     private ObjectMapper objectMapper;
 
     private final PolicyRepository policyRepository;
+    private final EndpointRepository endpointRepository;
     private final RoleRepository roleRepository;
     private final RolePolicyRepository rolePolicyRepository;
     private final EndpointPolicyRepository endpointPolicyRepository;
 
     public PolicyController(
             PolicyRepository policyRepository,
+            EndpointRepository endpointRepository,
             RoleRepository roleRepository,
             RolePolicyRepository rolePolicyRepository,
             EndpointPolicyRepository endpointPolicyRepository) {
         this.policyRepository = policyRepository;
+        this.endpointRepository = endpointRepository;
         this.roleRepository = roleRepository;
         this.rolePolicyRepository = rolePolicyRepository;
         this.endpointPolicyRepository = endpointPolicyRepository;
@@ -192,6 +198,71 @@ public class PolicyController {
     }
 
     /**
+     * Replace endpoints protected by a policy
+     */
+    @PutMapping("/{id}/endpoints")
+    @Transactional
+    @Auditable(action = "UPDATE_POLICY_ENDPOINTS", resourceType = "POLICY")
+    public ResponseEntity<? extends Map<String, ? extends Object>> updatePolicyEndpoints(
+            @PathVariable Long id,
+            @RequestBody PolicyEndpointAssignmentRequest request) {
+
+        return policyRepository.findById(id)
+                .map(policy -> {
+                    try {
+                        Set<Long> endpointIds = request.getEndpointIds();
+                        if (endpointIds == null) {
+                            endpointIds = Collections.emptySet();
+                        }
+
+                        List<Endpoint> endpoints = endpointIds.isEmpty()
+                                ? Collections.emptyList()
+                                : endpointRepository.findByIdIn(new ArrayList<>(endpointIds));
+
+                        if (!endpointIds.isEmpty()) {
+                            Set<Long> foundIds = endpoints.stream()
+                                    .map(Endpoint::getId)
+                                    .collect(Collectors.toSet());
+                            Set<Long> missing = endpointIds.stream()
+                                    .filter(endpointId -> !foundIds.contains(endpointId))
+                                    .collect(Collectors.toSet());
+                            if (!missing.isEmpty()) {
+                                throw new IllegalArgumentException("Endpoint(s) not found: " + missing);
+                            }
+                        }
+
+                        endpointPolicyRepository.deleteByPolicyId(id);
+
+                        if (!endpoints.isEmpty()) {
+                            Map<Long, Endpoint> endpointById = endpoints.stream()
+                                    .collect(Collectors.toMap(Endpoint::getId, endpoint -> endpoint));
+
+                            long nextId = endpointPolicyRepository.findTopByOrderByIdDesc()
+                                    .map(existing -> existing.getId() + 1)
+                                    .orElse(1L);
+
+                            for (Long endpointId : endpointIds) {
+                                Endpoint endpoint = endpointById.get(endpointId);
+                                EndpointPolicy endpointPolicy = new EndpointPolicy(endpoint, policy);
+                                endpointPolicy.setId(nextId++);
+                                endpointPolicyRepository.save(endpointPolicy);
+                            }
+                        }
+
+                        return ResponseEntity.ok(convertToResponse(policy));
+                    } catch (IllegalArgumentException e) {
+                        logger.error("Failed to update endpoints for policy {}", id, e);
+                        return ResponseEntity.badRequest()
+                                .body(Map.of(
+                                        "error", e.getMessage(),
+                                        "policyId", id
+                                ));
+                    }
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
      * Delete policy
      */
     @DeleteMapping("/{id}")
@@ -289,5 +360,17 @@ public class PolicyController {
         
         public Boolean getIsActive() { return isActive; }
         public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+    }
+
+    public static class PolicyEndpointAssignmentRequest {
+        private Set<Long> endpointIds;
+
+        public Set<Long> getEndpointIds() {
+            return endpointIds;
+        }
+
+        public void setEndpointIds(Set<Long> endpointIds) {
+            this.endpointIds = endpointIds;
+        }
     }
 }

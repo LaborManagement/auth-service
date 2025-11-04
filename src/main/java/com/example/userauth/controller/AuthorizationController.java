@@ -5,8 +5,8 @@ import com.example.userauth.service.ServiceCatalogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import jakarta.servlet.http.HttpServletRequest;
 import com.shared.common.util.ETagUtil;
 import org.springframework.security.core.Authentication;
@@ -152,6 +152,64 @@ public class AuthorizationController {
                         return ResponseEntity.internalServerError().build();
                 }
         }
+
+    /**
+     * Get RBAC access matrix for a specific user.
+     *
+     * @param userId User identifier
+     * @return RBAC access matrix for review
+     */
+    @Auditable(action = "GET_USER_ACCESS_MATRIX", resourceType = "AUTHORIZATION")
+    @GetMapping("/meta/user-access-matrix/{user_id}")
+    @Operation(
+            summary = "Get user access matrix",
+            description = "Returns RBAC mappings (user → role → policy → endpoint) for a specific user",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+        public ResponseEntity<Map<String, Object>> getUserAccessMatrix(
+                @PathVariable("user_id") Long userId,
+                HttpServletRequest request) {
+                try {
+                        Map<String, Object> matrix = authorizationService.getUserAccessMatrixForUser(userId);
+                        String etag = matrix.get("version") != null ? String.valueOf(matrix.get("version")) : ETagUtil.generateETag(matrix.toString());
+                        String ifNoneMatch = request.getHeader(HttpHeaders.IF_NONE_MATCH);
+                        if (etag.equals(ifNoneMatch)) {
+                                return ResponseEntity.status(304).eTag(etag).build();
+                        }
+                        return ResponseEntity.ok().eTag(etag).body(matrix);
+                } catch (IllegalArgumentException ex) {
+                        return ResponseEntity.status(404).body(Map.of("error", ex.getMessage()));
+                }
+    }
+
+    /**
+     * Get UI access matrix (page → action → endpoint) for a specific page.
+     *
+     * @param pageId Page identifier
+     * @return UI access matrix for review
+     */
+    @Auditable(action = "GET_UI_ACCESS_MATRIX", resourceType = "CATALOG")
+    @GetMapping("/meta/ui-access-matrix/{page_id}")
+    @Operation(
+            summary = "Get UI access matrix",
+            description = "Returns UI mappings (page → action → endpoint) for a specific page",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+        public ResponseEntity<Map<String, Object>> getUiAccessMatrix(
+                @PathVariable("page_id") Long pageId,
+                HttpServletRequest request) {
+                try {
+                        Map<String, Object> matrix = authorizationService.getUiAccessMatrixForPage(pageId);
+                        String etag = matrix.get("version") != null ? String.valueOf(matrix.get("version")) : ETagUtil.generateETag(matrix.toString());
+                        String ifNoneMatch = request.getHeader(HttpHeaders.IF_NONE_MATCH);
+                        if (etag.equals(ifNoneMatch)) {
+                                return ResponseEntity.status(304).eTag(etag).build();
+                        }
+                        return ResponseEntity.ok().eTag(etag).body(matrix);
+                } catch (IllegalArgumentException ex) {
+                        return ResponseEntity.status(404).body(Map.of("error", ex.getMessage()));
+                }
+    }
 
     /**
      * Extract user ID from authentication object

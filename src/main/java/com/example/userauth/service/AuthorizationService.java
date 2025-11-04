@@ -1,6 +1,11 @@
 package com.example.userauth.service;
 
+import com.example.userauth.entity.Endpoint;
+import com.example.userauth.entity.EndpointPolicy;
 import com.example.userauth.entity.PageAction;
+import com.example.userauth.entity.Policy;
+import com.example.userauth.entity.Role;
+import com.example.userauth.entity.RolePolicy;
 import com.example.userauth.entity.UIPage;
 import com.example.userauth.entity.User;
 import com.example.userauth.entity.UserRoleAssignment;
@@ -21,15 +26,20 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -154,6 +164,15 @@ public class AuthorizationService {
         return response;
     }
 
+    private List<User> resolveUsers(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User id is required");
+        }
+        return userRepository.findById(userId)
+                .map(List::of)
+                .orElseThrow(() -> new IllegalArgumentException("User not found for id: " + userId));
+    }
+
     /**
      * Build an authorization matrix for backend enforcement.
      * This reuses the same logic used for the UI payload.
@@ -175,6 +194,364 @@ public class AuthorizationService {
             policyNames.addAll(rolePolicyRepository.findPolicyNamesByRoleName(roleName));
         }
         return new AuthorizationMatrix(user.getId(), user.getPermissionVersion(), roleNames, policyNames);
+    }
+
+    /**
+     * Build the RBAC access matrix (user → role → policy → endpoint) for a specific user.
+     *
+     * @param userId The user ID to evaluate
+     * @return Map containing RBAC structures and summary metadata for the user
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getUserAccessMatrixForUser(Long userId) {
+        logger.debug("Building user access matrix for administrative review. userId={}", userId);
+
+        List<User> users = resolveUsers(userId);
+        List<RolePolicy> activeRolePolicies = rolePolicyRepository.findByIsActiveTrue();
+        List<Policy> activePolicies = policyRepository.findByIsActiveTrue();
+        List<Endpoint> allEndpoints = endpointRepository.findAll();
+
+        Map<Long, Policy> activePoliciesById = activePolicies.stream()
+                .collect(Collectors.toMap(Policy::getId, Function.identity()));
+
+        Map<Long, Endpoint> activeEndpointsById = allEndpoints.stream()
+                .filter(endpoint -> Boolean.TRUE.equals(endpoint.getIsActive()))
+                .collect(Collectors.toMap(Endpoint::getId, Function.identity()));
+
+        Map<Long, List<RolePolicy>> rolePoliciesByRoleId = activeRolePolicies.stream()
+                .filter(rolePolicy -> rolePolicy.getRole() != null && rolePolicy.getPolicy() != null)
+                .collect(Collectors.groupingBy(rolePolicy -> rolePolicy.getRole().getId()));
+
+        List<Long> activePolicyIds = new ArrayList<>(activePoliciesById.keySet());
+        List<EndpointPolicy> endpointPolicies = activePolicyIds.isEmpty()
+                ? Collections.emptyList()
+                : endpointPolicyRepository.findByPolicyIdIn(activePolicyIds);
+
+        Map<Long, Map<Long, Endpoint>> endpointsByPolicyId = new HashMap<>();
+        for (EndpointPolicy endpointPolicy : endpointPolicies) {
+            Policy policy = endpointPolicy.getPolicy();
+            Endpoint endpoint = endpointPolicy.getEndpoint();
+            if (policy == null || endpoint == null) {
+                continue;
+            }
+            Endpoint activeEndpoint = activeEndpointsById.get(endpoint.getId());
+            if (activeEndpoint == null) {
+                continue;
+            }
+            endpointsByPolicyId
+                    .computeIfAbsent(policy.getId(), id -> new LinkedHashMap<>())
+                    .put(activeEndpoint.getId(), activeEndpoint);
+        }
+
+        List<Map<String, Object>> rbac = users.stream()
+                .sorted(Comparator.comparing(
+                        user -> user.getUsername() != null
+                                ? user.getUsername().toLowerCase(Locale.ROOT)
+                                : ""
+                ))
+                .map(user -> buildUserAccessEntry(user, rolePoliciesByRoleId, activePoliciesById, endpointsByPolicyId))
+                .collect(Collectors.toList());
+
+        Set<Long> uniqueRoleIds = new HashSet<>();
+        Set<Long> uniquePolicyIds = new HashSet<>();
+        Set<Long> uniqueEndpointIds = new HashSet<>();
+
+        for (Map<String, Object> userEntry : rbac) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> roleEntries =
+                    (List<Map<String, Object>>) userEntry.getOrDefault("roles", Collections.emptyList());
+            for (Map<String, Object> roleEntry : roleEntries) {
+                Object roleIdObj = roleEntry.get("id");
+                if (roleIdObj instanceof Number) {
+                    uniqueRoleIds.add(((Number) roleIdObj).longValue());
+                }
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> policyEntries =
+                        (List<Map<String, Object>>) roleEntry.getOrDefault("policies", Collections.emptyList());
+                for (Map<String, Object> policyEntry : policyEntries) {
+                    Object policyIdObj = policyEntry.get("id");
+                    if (policyIdObj instanceof Number) {
+                        uniquePolicyIds.add(((Number) policyIdObj).longValue());
+                    }
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> endpointEntries =
+                            (List<Map<String, Object>>) policyEntry.getOrDefault("endpoints", Collections.emptyList());
+                    for (Map<String, Object> endpointEntry : endpointEntries) {
+                        Object endpointIdObj = endpointEntry.get("id");
+                        if (endpointIdObj instanceof Number) {
+                            uniqueEndpointIds.add(((Number) endpointIdObj).longValue());
+                        }
+                    }
+                }
+            }
+        }
+
+        Map<String, Object> counts = new LinkedHashMap<>();
+        counts.put("users", rbac.size());
+        counts.put("roles", uniqueRoleIds.size());
+        counts.put("policies", uniquePolicyIds.size());
+        counts.put("endpoints", uniqueEndpointIds.size());
+        counts.put("active_policies_total", activePoliciesById.size());
+        counts.put("active_endpoints_total", activeEndpointsById.size());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("generated_at", Instant.now().toString());
+        response.put("version", System.currentTimeMillis());
+        response.put("filters", Map.of("user_id", userId));
+        response.put("counts", counts);
+        response.put("rbac", rbac);
+
+        logger.debug("User access matrix built with {} users, {} roles, {} policies, {} endpoints",
+                counts.get("users"), counts.get("roles"), counts.get("policies"), counts.get("endpoints"));
+        return response;
+    }
+
+    /**
+     * Build the UI access matrix (page → action → endpoint) for administrative review.
+     *
+     * @return Map containing UI structures and summary metadata
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getUiAccessMatrixForPage(Long pageId) {
+        logger.debug("Building UI access matrix for administrative review. pageId={}", pageId);
+
+        UIPage page = uiPageRepository.findById(pageId)
+                .filter(uiPage -> Boolean.TRUE.equals(uiPage.getIsActive()))
+                .orElseThrow(() -> new IllegalArgumentException("Page not found or inactive for id: " + pageId));
+
+        List<PageAction> activeActions = pageActionRepository.findByPageIdAndIsActiveTrue(pageId);
+
+        Set<Long> endpointIds = activeActions.stream()
+                .map(PageAction::getEndpoint)
+                .filter(Objects::nonNull)
+                .map(Endpoint::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+
+        Map<Long, Endpoint> endpointsById;
+        if (endpointIds.isEmpty()) {
+            endpointsById = Collections.emptyMap();
+        } else {
+            List<Endpoint> endpoints = endpointRepository.findByIdIn(new ArrayList<>(endpointIds));
+            endpointsById = endpoints.stream()
+                    .collect(Collectors.toMap(Endpoint::getId, Function.identity()));
+        }
+
+        Map<Long, List<PageAction>> actionsByPageId = Map.of(page.getId(), activeActions);
+
+        Map<String, Object> pageEntry = buildPageAccessEntry(page, actionsByPageId, endpointsById);
+        List<Map<String, Object>> ui = List.of(pageEntry);
+
+        Set<Long> uniqueEndpointIds = new HashSet<>(endpointIds);
+
+        Map<String, Object> counts = new LinkedHashMap<>();
+        counts.put("pages", ui.size());
+        counts.put("page_actions", activeActions.size());
+        counts.put("endpoints", uniqueEndpointIds.size());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("generated_at", Instant.now().toString());
+        response.put("version", System.currentTimeMillis());
+        response.put("page_id", pageId);
+        response.put("counts", counts);
+        response.put("ui", ui);
+
+        logger.debug("UI access matrix built for page {} with {} actions, {} endpoints",
+                pageId, counts.get("page_actions"), counts.get("endpoints"));
+        return response;
+    }
+
+    private Map<String, Object> buildUserAccessEntry(
+            User user,
+            Map<Long, List<RolePolicy>> rolePoliciesByRoleId,
+            Map<Long, Policy> policiesById,
+            Map<Long, Map<Long, Endpoint>> endpointsByPolicyId) {
+
+        Map<String, Object> userMap = new LinkedHashMap<>();
+        userMap.put("id", user.getId());
+        userMap.put("username", user.getUsername());
+        userMap.put("email", user.getEmail());
+        userMap.put("full_name", user.getFullName());
+        userMap.put("enabled", user.isEnabled());
+        userMap.put("account_non_locked", user.isAccountNonLocked());
+        userMap.put("account_non_expired", user.isAccountNonExpired());
+        userMap.put("credentials_non_expired", user.isCredentialsNonExpired());
+        userMap.put("permission_version", user.getPermissionVersion());
+        if (user.getRole() != null) {
+            userMap.put("legacy_role", user.getRole().name());
+        }
+
+        Set<Long> seenRoleIds = new HashSet<>();
+        List<Map<String, Object>> roleEntries = user.getRoles().stream()
+                .filter(Objects::nonNull)
+                .filter(role -> role.getId() != null && seenRoleIds.add(role.getId()))
+                .sorted(Comparator.comparing(
+                        role -> role.getName() != null
+                                ? role.getName().toLowerCase(Locale.ROOT)
+                                : ""))
+                .map(role -> buildRoleEntry(role, rolePoliciesByRoleId, policiesById, endpointsByPolicyId))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        userMap.put("roles", roleEntries);
+        userMap.put("role_count", roleEntries.size());
+        userMap.put("policy_count", roleEntries.stream()
+                .mapToInt(roleEntry ->
+                        ((List<?>) roleEntry.getOrDefault("policies", Collections.emptyList())).size())
+                .sum());
+        userMap.put("endpoint_count", roleEntries.stream()
+                .flatMap(roleEntry -> ((List<?>) roleEntry.getOrDefault("policies", Collections.emptyList())).stream())
+                .map(policyEntry -> (Map<String, Object>) policyEntry)
+                .map(policyEntry -> (List<?>) policyEntry.getOrDefault("endpoints", Collections.emptyList()))
+                .mapToInt(List::size)
+                .sum());
+
+        return userMap;
+    }
+
+    private Map<String, Object> buildRoleEntry(
+            Role role,
+            Map<Long, List<RolePolicy>> rolePoliciesByRoleId,
+            Map<Long, Policy> policiesById,
+            Map<Long, Map<Long, Endpoint>> endpointsByPolicyId) {
+
+        if (role == null) {
+            return null;
+        }
+
+        Map<String, Object> roleMap = new LinkedHashMap<>();
+        roleMap.put("id", role.getId());
+        roleMap.put("name", role.getName());
+        roleMap.put("description", role.getDescription());
+        roleMap.put("is_active", role.getIsActive());
+        if (role.getPolicyNames() != null && !role.getPolicyNames().isEmpty()) {
+            roleMap.put("policy_names", role.getPolicyNames());
+        }
+
+        List<RolePolicy> assignments = rolePoliciesByRoleId.getOrDefault(role.getId(), Collections.emptyList());
+        Set<Long> seenPolicyIds = new HashSet<>();
+        List<Map<String, Object>> policies = new ArrayList<>();
+        for (RolePolicy assignment : assignments) {
+            Policy rawPolicy = assignment.getPolicy();
+            if (rawPolicy == null || rawPolicy.getId() == null) {
+                continue;
+            }
+            Policy policy = policiesById.get(rawPolicy.getId());
+            if (policy == null || !seenPolicyIds.add(policy.getId())) {
+                continue;
+            }
+            Map<String, Object> policyMap = buildPolicyEntry(
+                    policy,
+                    endpointsByPolicyId.getOrDefault(policy.getId(), Collections.emptyMap()));
+            policies.add(policyMap);
+        }
+        policies.sort(Comparator.comparing(
+                policyEntry -> ((String) policyEntry.getOrDefault("name", "")).toLowerCase(Locale.ROOT)));
+
+        roleMap.put("policies", policies);
+        roleMap.put("policy_count", policies.size());
+        roleMap.put("endpoint_count", policies.stream()
+                .map(policyEntry -> (List<?>) policyEntry.getOrDefault("endpoints", Collections.emptyList()))
+                .mapToInt(List::size)
+                .sum());
+
+        return roleMap;
+    }
+
+    private Map<String, Object> buildPolicyEntry(
+            Policy policy,
+            Map<Long, Endpoint> endpointsForPolicy) {
+
+        Map<String, Object> policyMap = new LinkedHashMap<>();
+        policyMap.put("id", policy.getId());
+        policyMap.put("name", policy.getName());
+        policyMap.put("description", policy.getDescription());
+        policyMap.put("type", policy.getType());
+        policyMap.put("policy_type", policy.getPolicyType());
+        policyMap.put("is_active", policy.getIsActive());
+        if (StringUtils.hasText(policy.getConditions())) {
+            policyMap.put("conditions", policy.getConditions());
+        }
+
+        List<Map<String, Object>> endpoints = new ArrayList<>();
+        if (endpointsForPolicy != null) {
+            endpointsForPolicy.values().stream()
+                    .sorted(Comparator
+                            .comparing((Endpoint endpoint) -> endpoint.getService() != null
+                                    ? endpoint.getService().toLowerCase(Locale.ROOT)
+                                    : "")
+                            .thenComparing(endpoint -> endpoint.getPath() != null
+                                    ? endpoint.getPath()
+                                    : ""))
+                    .map(this::mapEndpointSummary)
+                    .forEach(endpoints::add);
+        }
+
+        policyMap.put("endpoints", endpoints);
+        policyMap.put("endpoint_count", endpoints.size());
+        return policyMap;
+    }
+
+    private Map<String, Object> mapEndpointSummary(Endpoint endpoint) {
+        Map<String, Object> endpointMap = new LinkedHashMap<>();
+        endpointMap.put("id", endpoint.getId());
+        endpointMap.put("service", endpoint.getService());
+        endpointMap.put("version", endpoint.getVersion());
+        endpointMap.put("method", endpoint.getMethod());
+        endpointMap.put("path", endpoint.getPath());
+        endpointMap.put("description", endpoint.getDescription());
+        endpointMap.put("ui_type", endpoint.getUiType());
+        endpointMap.put("is_active", endpoint.getIsActive());
+        return endpointMap;
+    }
+
+    private Map<String, Object> buildPageAccessEntry(
+            UIPage page,
+            Map<Long, List<PageAction>> actionsByPageId,
+            Map<Long, Endpoint> endpointsById) {
+
+        Map<String, Object> pageMap = new LinkedHashMap<>();
+        pageMap.put("id", page.getId());
+        pageMap.put("key", page.getKey());
+        pageMap.put("label", page.getLabel());
+        pageMap.put("route", page.getRoute());
+        pageMap.put("module", page.getModule());
+        pageMap.put("icon", page.getIcon());
+        pageMap.put("parent_id", page.getParentId());
+        pageMap.put("display_order", page.getDisplayOrder());
+        pageMap.put("is_menu_item", page.getIsMenuItem());
+        pageMap.put("is_active", page.getIsActive());
+
+        List<PageAction> actions = actionsByPageId.getOrDefault(page.getId(), Collections.emptyList());
+        List<Map<String, Object>> actionDtos = new ArrayList<>();
+        actions.stream()
+                .sorted(Comparator
+                        .comparing((PageAction action) -> action.getDisplayOrder() != null
+                                ? action.getDisplayOrder()
+                                : Integer.MAX_VALUE)
+                        .thenComparing(action -> action.getLabel() != null
+                                ? action.getLabel().toLowerCase(Locale.ROOT)
+                                : ""))
+                .forEach(action -> {
+                    Map<String, Object> actionMap = new LinkedHashMap<>();
+                    actionMap.put("id", action.getId());
+                    actionMap.put("label", action.getLabel());
+                    actionMap.put("action", action.getAction());
+                    actionMap.put("variant", action.getVariant());
+                    actionMap.put("icon", action.getIcon());
+                    actionMap.put("display_order", action.getDisplayOrder());
+                    actionMap.put("is_active", action.getIsActive());
+                    Endpoint endpoint = action.getEndpoint();
+                    if (endpoint != null) {
+                        Endpoint resolved = endpointsById.getOrDefault(endpoint.getId(), endpoint);
+                        actionMap.put("endpoint", mapEndpointSummary(resolved));
+                    }
+                    actionDtos.add(actionMap);
+                });
+
+        pageMap.put("actions", actionDtos);
+        pageMap.put("action_count", actionDtos.size());
+        return pageMap;
     }
 
     /**
