@@ -214,10 +214,11 @@ public class EndpointController {
      */
     @GetMapping("/{id}/policies")
     @Transactional(readOnly = true)
-    public ResponseEntity<List<Policy>> getEndpointPolicies(@PathVariable Long id, HttpServletRequest request) {
+    public ResponseEntity<List<PolicySummary>> getEndpointPolicies(@PathVariable Long id, HttpServletRequest request) {
         List<EndpointPolicy> endpointPolicies = endpointPolicyRepository.findByEndpointId(id);
-        List<Policy> policies = endpointPolicies.stream()
+        List<PolicySummary> policies = endpointPolicies.stream()
                 .map(EndpointPolicy::getPolicy)
+                .map(PolicySummary::from)
                 .collect(Collectors.toList());
         try {
             String responseJson = objectMapper.writeValueAsString(policies);
@@ -419,7 +420,7 @@ public class EndpointController {
         public Set<Long> getPolicyIds() { return policyIds; }
         public void setPolicyIds(Set<Long> policyIds) { this.policyIds = policyIds; }
     }
-    
+
     public static class PolicyAssignmentRequest {
         private Set<Long> policyIds;
 
@@ -445,6 +446,84 @@ public class EndpointController {
 
         public void setEndpointIds(Set<Long> endpointIds) {
             this.endpointIds = endpointIds;
+        }
+    }
+
+    public static class PolicySummary {
+        private Long id;
+        private String name;
+        private String description;
+        private String type;
+        private String policyType;
+        private String conditions;
+        private Boolean isActive;
+
+        public static PolicySummary from(Policy policy) {
+            PolicySummary summary = new PolicySummary();
+            summary.setId(policy.getId());
+            summary.setName(policy.getName());
+            summary.setDescription(policy.getDescription());
+            summary.setType(policy.getType());
+            summary.setPolicyType(policy.getPolicyType());
+            summary.setConditions(policy.getConditions());
+            summary.setIsActive(policy.getIsActive());
+            return summary;
+        }
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public String getPolicyType() {
+            return policyType;
+        }
+
+        public void setPolicyType(String policyType) {
+            this.policyType = policyType;
+        }
+
+        public String getConditions() {
+            return conditions;
+        }
+
+        public void setConditions(String conditions) {
+            this.conditions = conditions;
+        }
+
+        public Boolean getIsActive() {
+            return isActive;
+        }
+
+        public void setIsActive(Boolean isActive) {
+            this.isActive = isActive;
         }
     }
 }

@@ -1,10 +1,12 @@
 package com.example.userauth.controller;
 
 import com.example.userauth.dto.*;
+import com.example.userauth.entity.Role;
 import com.example.userauth.entity.User;
 import com.example.userauth.entity.UserRole;
 import com.example.userauth.service.AuthService;
 import com.example.userauth.service.UIConfigService;
+import com.example.userauth.service.RoleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -45,6 +47,9 @@ public class AuthController {
     
     @Autowired
     private UIConfigService uiConfigService;
+
+    @Autowired
+    private RoleService roleService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -187,6 +192,29 @@ public class AuthController {
         } catch (Exception e) {
             logger.error("Error processing users by role response", e);
             return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @Auditable(action = "GET_USER_ROLES", resourceType = "USER")
+    @GetMapping("/users/{userId}/roles")
+    @Operation(summary = "Get user roles", description = "Get roles assigned to a user (Requires authentication)")
+    @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
+    public ResponseEntity<?> getUserRoles(
+            @Parameter(description = "User ID") @PathVariable Long userId,
+            HttpServletRequest request) {
+        try {
+            List<Role> roles = roleService.getRolesByUserId(userId);
+            String responseJson = objectMapper.writeValueAsString(roles);
+            String eTag = ETagUtil.generateETag(responseJson);
+            String ifNoneMatch = request.getHeader(HttpHeaders.IF_NONE_MATCH);
+            if (eTag.equals(ifNoneMatch)) {
+                return ResponseEntity.status(304).eTag(eTag).build();
+            }
+            return ResponseEntity.ok().eTag(eTag).body(roles);
+        } catch (Exception e) {
+            logger.error("Failed to get roles for user {}", userId, e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to retrieve user roles"));
         }
     }
     
