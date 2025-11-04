@@ -139,20 +139,14 @@ public class Role extends AbstractAuditableEntity<Long> {
 
     /**
      * Helper method to get all active policies assigned to this role
+     * NOT serialized to JSON - use policyNames instead
      */
+    @JsonIgnore
     public Set<Policy> getPolicies() {
         return rolePolicies.stream()
                 .filter(rp -> rp.getIsActive())
                 .map(RolePolicy::getPolicy)
                 .collect(java.util.stream.Collectors.toSet());
-    }
-
-    public Set<String> getCapabilityNames() {
-        return capabilityNames;
-    }
-
-    public void setCapabilityNames(Set<String> capabilityNames) {
-        this.capabilityNames = capabilityNames != null ? capabilityNames : new HashSet<>();
     }
 
     public Set<String> getPolicyNames() {
@@ -161,6 +155,23 @@ public class Role extends AbstractAuditableEntity<Long> {
 
     public void setPolicyNames(Set<String> policyNames) {
         this.policyNames = policyNames != null ? policyNames : new HashSet<>();
+    }
+
+    /**
+     * Capability names are derived from policies (transitive relationship).
+     * NOT serialized to JSON - use policies endpoint to get capabilities.
+     * @deprecated Access capabilities through policies, not directly from roles
+     */
+    @JsonIgnore
+    @Deprecated
+    public Set<String> getCapabilityNames() {
+        return capabilityNames;
+    }
+
+    @JsonIgnore
+    @Deprecated
+    public void setCapabilityNames(Set<String> capabilityNames) {
+        this.capabilityNames = capabilityNames != null ? capabilityNames : new HashSet<>();
     }
     
     // Helper methods

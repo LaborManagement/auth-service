@@ -3,10 +3,12 @@ package com.example.userauth.controller;
 import com.example.userauth.entity.Capability;
 import com.example.userauth.entity.Policy;
 import com.example.userauth.entity.PolicyCapability;
+import com.example.userauth.entity.Role;
 import com.example.userauth.repository.CapabilityRepository;
 import com.example.userauth.repository.PolicyCapabilityRepository;
 import com.example.userauth.repository.PolicyRepository;
 import com.example.userauth.repository.RoleRepository;
+import com.example.userauth.repository.RolePolicyRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
 import jakarta.servlet.http.HttpServletRequest;
@@ -48,20 +50,23 @@ public class PolicyController {
     private final CapabilityRepository capabilityRepository;
     private final PolicyCapabilityRepository policyCapabilityRepository;
     private final RoleRepository roleRepository;
+    private final RolePolicyRepository rolePolicyRepository;
 
     public PolicyController(
             PolicyRepository policyRepository,
             CapabilityRepository capabilityRepository,
             PolicyCapabilityRepository policyCapabilityRepository,
-            RoleRepository roleRepository) {
+            RoleRepository roleRepository,
+            RolePolicyRepository rolePolicyRepository) {
         this.policyRepository = policyRepository;
         this.capabilityRepository = capabilityRepository;
         this.policyCapabilityRepository = policyCapabilityRepository;
         this.roleRepository = roleRepository;
+        this.rolePolicyRepository = rolePolicyRepository;
     }
 
     /**
-     * Get all policies with their capabilities
+     * Get all policies with their assigned roles
      */
     @Auditable(action = "GET_ALL_POLICIES", resourceType = "POLICY")
     @GetMapping
@@ -85,7 +90,7 @@ public class PolicyController {
     }
 
     /**
-     * Get policy by ID with capabilities
+     * Get policy by ID with assigned roles
      */
     @GetMapping("/{id}")
     @SuppressWarnings("unchecked")
@@ -323,23 +328,23 @@ public class PolicyController {
         response.put("id", policy.getId());
         response.put("name", policy.getName());
         response.put("description", policy.getDescription());
-        response.put("expression", policy.getExpression());
+        response.put("type", policy.getType());
         response.put("isActive", policy.getIsActive());
         response.put("createdAt", policy.getCreatedAt());
         response.put("updatedAt", policy.getUpdatedAt());
         
-        // Add capabilities
-        Set<PolicyCapability> policyCapabilities = policy.getPolicyCapabilities();
-        List<Map<String, Object>> capabilities = policyCapabilities.stream()
-                .map(pc -> {
-                    Map<String, Object> cap = new HashMap<>();
-                    cap.put("id", pc.getCapability().getId());
-                    cap.put("name", pc.getCapability().getName());
-                    cap.put("description", pc.getCapability().getDescription());
-                    return cap;
+        // Add roles that have this policy assigned
+        List<Role> roles = rolePolicyRepository.findRolesByPolicyId(policy.getId());
+        List<Map<String, Object>> roleList = roles.stream()
+                .map(role -> {
+                    Map<String, Object> roleMap = new HashMap<>();
+                    roleMap.put("id", role.getId());
+                    roleMap.put("name", role.getName());
+                    roleMap.put("description", role.getDescription());
+                    return roleMap;
                 })
                 .collect(Collectors.toList());
-        response.put("capabilities", capabilities);
+        response.put("roles", roleList);
         
         return response;
     }
