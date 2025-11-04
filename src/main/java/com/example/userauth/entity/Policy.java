@@ -15,10 +15,10 @@ import com.shared.entityaudit.listener.SharedEntityAuditListener;
 
 /**
  * Represents an authorization policy in the system.
- * Policies define WHAT capabilities are granted.
+ * Policies define which endpoints are accessible.
  * Assigned to roles via the role_policies junction table (RolePolicy entity).
- * 
- * Migration Note: The 'expression' JSON field has been removed. 
+ *
+ * Migration Note: The 'expression' JSON field has been removed.
  * Role assignments are now handled through the RolePolicy relationship.
  */
 @Entity
@@ -77,10 +77,6 @@ public class Policy extends AbstractAuditableEntity<Long> {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    // Relationship with Capability (Policy grants Capabilities)
-    @OneToMany(mappedBy = "policy", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<PolicyCapability> policyCapabilities = new HashSet<>();
 
     // Relationship with Role (Policies are assigned to Roles)
     @OneToMany(mappedBy = "policy", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -224,14 +220,6 @@ public class Policy extends AbstractAuditableEntity<Long> {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
-    }
-
-    public Set<PolicyCapability> getPolicyCapabilities() {
-        return policyCapabilities;
-    }
-
-    public void setPolicyCapabilities(Set<PolicyCapability> policyCapabilities) {
-        this.policyCapabilities = policyCapabilities;
     }
 
     public Set<RolePolicy> getRolePolicies() {

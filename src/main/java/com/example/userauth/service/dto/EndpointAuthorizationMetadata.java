@@ -6,6 +6,7 @@ import java.util.Set;
 
 /**
  * Metadata describing the authorization requirements for a cataloged endpoint.
+ * Authorization is determined by checking if the user's policies match the endpoint's required policies.
  */
 public class EndpointAuthorizationMetadata {
 
@@ -13,20 +14,15 @@ public class EndpointAuthorizationMetadata {
     private final Long endpointId;
     private final boolean hasPolicies;
     private final Set<Long> policyIds;
-    private final Set<String> requiredCapabilities;
 
     public EndpointAuthorizationMetadata(boolean endpointFound,
                                          Long endpointId,
                                          boolean hasPolicies,
-                                         Set<Long> policyIds,
-                                         Set<String> requiredCapabilities) {
+                                         Set<Long> policyIds) {
         this.endpointFound = endpointFound;
         this.endpointId = endpointId;
         this.hasPolicies = hasPolicies;
         this.policyIds = policyIds != null ? Collections.unmodifiableSet(new HashSet<>(policyIds)) : Set.of();
-        this.requiredCapabilities = requiredCapabilities != null
-                ? Collections.unmodifiableSet(new HashSet<>(requiredCapabilities))
-                : Set.of();
     }
 
     public boolean isEndpointFound() {
@@ -47,9 +43,5 @@ public class EndpointAuthorizationMetadata {
 
     public Set<Long> getPolicyIds() {
         return policyIds;
-    }
-
-    public Set<String> getRequiredCapabilities() {
-        return requiredCapabilities;
     }
 }

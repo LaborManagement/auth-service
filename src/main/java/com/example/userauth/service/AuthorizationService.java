@@ -1,15 +1,14 @@
 package com.example.userauth.service;
 
-import com.example.userauth.entity.Endpoint;
 import com.example.userauth.entity.PageAction;
 import com.example.userauth.entity.UIPage;
 import com.example.userauth.entity.User;
 import com.example.userauth.entity.UserRoleAssignment;
-import com.example.userauth.repository.CapabilityRepository;
 import com.example.userauth.repository.EndpointPolicyRepository;
 import com.example.userauth.repository.EndpointRepository;
 import com.example.userauth.repository.PageActionRepository;
 import com.example.userauth.repository.PolicyRepository;
+import com.example.userauth.repository.RolePolicyRepository;
 import com.example.userauth.repository.UIPageRepository;
 import com.example.userauth.repository.UserRepository;
 import com.example.userauth.repository.UserRoleAssignmentRepository;
@@ -23,7 +22,6 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -40,14 +38,14 @@ import java.util.stream.Collectors;
  * Authorization Service - Unified authorization flow implementation
  * 
  * ARCHITECTURE:
- * User → UserRoleAssignment → Role → Policy → {Capability, Endpoint}
- * PageAction → Capability ↑ (linked via PolicyCapability)
+ * User → UserRoleAssignment → Role → Policy → Endpoint
+ * PageAction → Endpoint (direct FK)
  * 
  * PRINCIPLE: Policy is the single source of truth
- * - If Policy grants Capability, it MUST grant required Endpoints
- * - User access is determined by: Role → Policy → {Capabilities + Endpoints}
+ * - Policy grants access to specific Endpoints
+ * - User access is determined by: Role → Policy → Endpoints
  * 
- * Returns capabilities, policies, endpoints, and UI pages for authenticated users
+ * Returns policies, endpoints, and UI pages for authenticated users
  */
 @Service
 public class AuthorizationService {
@@ -92,44 +90,42 @@ public class AuthorizationService {
     private final UserRepository userRepository;
     private final UserRoleAssignmentRepository userRoleRepository;
     private final PolicyRepository policyRepository;
-    private final CapabilityRepository capabilityRepository;
     private final EndpointRepository endpointRepository;
     private final EndpointPolicyRepository endpointPolicyRepository;
     private final UIPageRepository uiPageRepository;
     private final PageActionRepository pageActionRepository;
+    private final RolePolicyRepository rolePolicyRepository;
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     private static final long ENDPOINT_CACHE_TTL_MS = 30_000L;
-    private static final long POLICY_CAPABILITIES_CACHE_TTL_MS = 30_000L;
 
     private final Map<String, List<EndpointDescriptor>> endpointCache = new ConcurrentHashMap<>();
     private final AtomicLong endpointCacheLoadedAt = new AtomicLong(0);
-    private final Map<Long, CapabilitiesCacheEntry> policyCapabilitiesCache = new ConcurrentHashMap<>();
 
     public AuthorizationService(
             UserRepository userRepository,
             UserRoleAssignmentRepository userRoleRepository,
             PolicyRepository policyRepository,
-            CapabilityRepository capabilityRepository,
             EndpointRepository endpointRepository,
             EndpointPolicyRepository endpointPolicyRepository,
             UIPageRepository uiPageRepository,
-            PageActionRepository pageActionRepository) {
+            PageActionRepository pageActionRepository,
+            RolePolicyRepository rolePolicyRepository) {
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
         this.policyRepository = policyRepository;
-        this.capabilityRepository = capabilityRepository;
         this.endpointRepository = endpointRepository;
         this.endpointPolicyRepository = endpointPolicyRepository;
         this.uiPageRepository = uiPageRepository;
         this.pageActionRepository = pageActionRepository;
+        this.rolePolicyRepository = rolePolicyRepository;
     }
 
     /**
      * Get comprehensive authorization data for a user
      * 
      * @param userId The user ID
-     * @return Map containing roles, capabilities, pages, and menu tree
+     * @return Map containing roles, policies, pages with actions, and accessible endpoints
      */
     @Transactional(readOnly = true)
     public Map<String, Object> getUserAuthorizations(Long userId) {
@@ -142,13 +138,15 @@ public class AuthorizationService {
 
         logger.debug("User {} has roles: {}", userId, matrix.getRoles());
 
-        List<Map<String, Object>> pages = getAccessiblePagesFilteredByCapabilities(matrix.getRoles(), matrix.getCapabilities());
+        // Get accessible endpoints based on user's roles and policies
+        Set<Long> accessibleEndpointIds = getAccessibleEndpointIds(matrix.getRoles());
+        
+        List<Map<String, Object>> pages = getAccessiblePagesByEndpoints(matrix.getRoles(), accessibleEndpointIds);
 
         Map<String, Object> response = new HashMap<>();
         response.put("userId", userId);
         response.put("username", user.getUsername());
         response.put("roles", matrix.getRoles());
-        response.put("can", buildCapabilityMap(matrix.getCapabilities()));
         response.put("pages", pages);
         response.put("version", System.currentTimeMillis());
 
@@ -172,12 +170,15 @@ public class AuthorizationService {
         Set<String> roleNames = userRoles.stream()
                 .map(ur -> ur.getRole().getName())
                 .collect(Collectors.toSet());
-        Set<String> capabilities = getCapabilitiesForRoles(roleNames);
-        return new AuthorizationMatrix(user.getId(), user.getPermissionVersion(), roleNames, capabilities);
+        Set<String> policyNames = new HashSet<>();
+        for (String roleName : roleNames) {
+            policyNames.addAll(rolePolicyRepository.findPolicyNamesByRoleName(roleName));
+        }
+        return new AuthorizationMatrix(user.getId(), user.getPermissionVersion(), roleNames, policyNames);
     }
 
     /**
-     * Resolve the capability names that guard a specific endpoint definition.
+     * Resolve the policies that guard a specific endpoint definition.
      * Returns an empty set if the endpoint is not cataloged or has no policies.
      */
     @Transactional(readOnly = true)
@@ -188,13 +189,13 @@ public class AuthorizationService {
         Optional<EndpointDescriptor> endpointOpt = findMatchingEndpoint(normalizedMethod, normalizedPath);
         if (endpointOpt.isEmpty()) {
             logger.debug("No endpoint catalog match for method={} path={}", normalizedMethod, normalizedPath);
-            return new EndpointAuthorizationMetadata(false, null, false, Set.of(), Set.of());
+            return new EndpointAuthorizationMetadata(false, null, false, Set.of());
         }
 
         EndpointDescriptor endpoint = endpointOpt.get();
         if (!endpoint.active()) {
             logger.debug("Endpoint {} is inactive, denying by default", endpoint.id());
-            return new EndpointAuthorizationMetadata(true, endpoint.id(), false, Set.of(), Set.of());
+            return new EndpointAuthorizationMetadata(true, endpoint.id(), false, Set.of());
         }
 
         Set<Long> policyIds = endpointPolicyRepository.findByEndpointId(endpoint.id()).stream()
@@ -204,12 +205,10 @@ public class AuthorizationService {
 
         if (policyIds.isEmpty()) {
             logger.debug("Endpoint {} has no policies linked", endpoint.id());
-            return new EndpointAuthorizationMetadata(true, endpoint.id(), false, Set.of(), Set.of());
+            return new EndpointAuthorizationMetadata(true, endpoint.id(), false, Set.of());
         }
 
-        Set<String> capabilities = resolveCapabilities(policyIds);
-
-        return new EndpointAuthorizationMetadata(true, endpoint.id(), true, policyIds, capabilities);
+        return new EndpointAuthorizationMetadata(true, endpoint.id(), true, policyIds);
     }
 
     private Optional<EndpointDescriptor> findMatchingEndpoint(String method, String normalizedPath) {
@@ -251,64 +250,7 @@ public class AuthorizationService {
                 .collect(Collectors.toList());
     }
 
-    private Set<String> resolveCapabilities(Set<Long> policyIds) {
-        if (policyIds.isEmpty()) {
-            return Collections.emptySet();
-        }
-
-        long now = System.currentTimeMillis();
-        Set<String> aggregated = new HashSet<>();
-        Set<Long> missing = new HashSet<>();
-
-        for (Long policyId : policyIds) {
-            CapabilitiesCacheEntry cached = policyCapabilitiesCache.get(policyId);
-            if (cached != null && !cached.isStale(now)) {
-                aggregated.addAll(cached.capabilities());
-            } else {
-                if (cached != null) {
-                    policyCapabilitiesCache.remove(policyId);
-                }
-                missing.add(policyId);
-            }
-        }
-
-        if (!missing.isEmpty()) {
-            Map<Long, Set<String>> fetched = fetchCapabilities(missing);
-            for (Map.Entry<Long, Set<String>> entry : fetched.entrySet()) {
-                Set<String> caps = entry.getValue();
-                policyCapabilitiesCache.put(entry.getKey(), new CapabilitiesCacheEntry(Set.copyOf(caps), now));
-                aggregated.addAll(caps);
-            }
-        }
-
-        return aggregated;
-    }
-
-    private Map<Long, Set<String>> fetchCapabilities(Set<Long> policyIds) {
-        if (policyIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        Map<Long, Set<String>> result = new HashMap<>();
-        List<PolicyRepository.PolicyCapabilitySummary> rows =
-                policyRepository.findCapabilityNamesByPolicyIds(policyIds);
-        for (PolicyRepository.PolicyCapabilitySummary row : rows) {
-            result.computeIfAbsent(row.getPolicyId(), ignored -> new HashSet<>())
-                  .add(row.getCapabilityName());
-        }
-
-        for (Long policyId : policyIds) {
-            result.computeIfAbsent(policyId, ignored -> Collections.emptySet());
-        }
-        return result;
-    }
-
     private record EndpointDescriptor(Long id, String path, String service, String version, boolean active) {
-    }
-
-    private record CapabilitiesCacheEntry(Set<String> capabilities, long loadedAt) {
-        boolean isStale(long now) {
-            return now - loadedAt > POLICY_CAPABILITIES_CACHE_TTL_MS;
-        }
     }
 
     private List<String> buildCompositePaths(EndpointDescriptor endpoint, String normalizedEndpointPath) {
@@ -385,41 +327,54 @@ public class AuthorizationService {
     }
 
     /**
-     * Get all capabilities granted to specific roles
+     * Get all endpoint IDs accessible to specific roles via their policies
      */
-    private Set<String> getCapabilitiesForRoles(Set<String> roleNames) {
-        Set<String> capabilities = new HashSet<>();
-
-        for (String roleName : roleNames) {
-            List<String> roleCapabilities = capabilityRepository.findCapabilityNamesByRoleName(roleName);
-            capabilities.addAll(roleCapabilities);
+    private Set<Long> getAccessibleEndpointIds(Set<String> roleNames) {
+        Set<Long> endpointIds = new HashSet<>();
+        
+        // Get all policies for the user's roles
+        List<UserRoleAssignment> assignments = userRoleRepository.findAll().stream()
+                .filter(ura -> roleNames.contains(ura.getRole().getName()))
+                .collect(Collectors.toList());
+        
+        Set<Long> policyIds = assignments.stream()
+                .flatMap(ura -> ura.getRole().getRolePolicies().stream())
+                .map(rp -> rp.getPolicy().getId())
+                .collect(Collectors.toSet());
+        
+        // Get all endpoints linked to these policies
+        if (!policyIds.isEmpty()) {
+            endpointIds = endpointPolicyRepository.findAll().stream()
+                    .filter(ep -> policyIds.contains(ep.getPolicy().getId()))
+                    .map(ep -> ep.getEndpoint().getId())
+                    .collect(Collectors.toSet());
         }
-
-        logger.debug("Found {} capabilities for roles: {}", capabilities.size(), roleNames);
-        return capabilities;
+        
+        logger.debug("Found {} accessible endpoints for roles: {}", endpointIds.size(), roleNames);
+        return endpointIds;
     }
 
     /**
-     * Get accessible pages for user's roles
+     * Get accessible pages for user's roles based on endpoint access
      */
-    private List<Map<String, Object>> getAccessiblePagesFilteredByCapabilities(Set<String> roleNames, Set<String> capabilities) {
+    private List<Map<String, Object>> getAccessiblePagesByEndpoints(Set<String> roleNames, Set<Long> accessibleEndpointIds) {
         List<UIPage> allPages = uiPageRepository.findByIsActiveTrueOrderByDisplayOrderAsc();
         List<Map<String, Object>> accessiblePages = new ArrayList<>();
         Set<Long> accessiblePageIds = new HashSet<>();
 
-        // First pass: collect pages with actions
+        // First pass: collect pages with actions that the user can perform
         for (UIPage page : allPages) {
             List<PageAction> actions = pageActionRepository.findByPageIdAndIsActiveTrue(page.getId());
-            // Only include actions the user can perform (has capability)
+            // Only include actions where the user has access to the linked endpoint
             List<Map<String, Object>> userActions = actions.stream()
-                .filter(action -> action.getCapability() != null && capabilities.contains(action.getCapability().getName()))
+                .filter(action -> action.getEndpoint() != null && accessibleEndpointIds.contains(action.getEndpoint().getId()))
                 .map(action -> {
                     Map<String, Object> actionData = new HashMap<>();
                     actionData.put("name", action.getAction());
                     actionData.put("label", action.getLabel());
-                    actionData.put("capability", action.getCapability().getName());
                     actionData.put("icon", action.getIcon());
                     actionData.put("variant", action.getVariant());
+                    actionData.put("endpointId", action.getEndpoint().getId());
                     return actionData;
                 })
                 .collect(Collectors.toList());
@@ -517,17 +472,5 @@ public class AuthorizationService {
 
         logger.debug("User has access to {} pages (including parent pages)", accessiblePages.size());
         return accessiblePages;
-    }
-
-    /**
-     * Build capability map for quick frontend checks
-     * { "USER_CREATE": true, "USER_DELETE": true, ... }
-     */
-    private Map<String, Boolean> buildCapabilityMap(Set<String> capabilities) {
-        Map<String, Boolean> capabilityMap = new HashMap<>();
-        for (String capability : capabilities) {
-            capabilityMap.put(capability, true);
-        }
-        return capabilityMap;
     }
 }

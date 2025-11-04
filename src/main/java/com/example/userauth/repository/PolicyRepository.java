@@ -77,34 +77,6 @@ public interface PolicyRepository extends JpaRepository<Policy, Long> {
     List<Policy> findPoliciesByRoleNames(@Param("roleNames") List<String> roleNames);
 
     /**
-     * Find policies that grant a specific capability
-     */
-    @Query("SELECT DISTINCT p FROM Policy p " +
-           "JOIN PolicyCapability pc ON pc.policy.id = p.id " +
-           "JOIN Capability c ON c.id = pc.capability.id " +
-           "WHERE c.name = :capabilityName " +
-           "AND p.isActive = true")
-    List<Policy> findPoliciesByCapabilityName(@Param("capabilityName") String capabilityName);
-
-    /**
-     * Get all capabilities granted by a specific policy
-     */
-    @Query("SELECT c.name FROM Capability c " +
-           "JOIN PolicyCapability pc ON pc.capability.id = c.id " +
-           "WHERE pc.policy.id = :policyId " +
-           "AND c.isActive = true")
-    List<String> findCapabilityNamesByPolicyId(@Param("policyId") Long policyId);
-
-    /**
-     * Fetch capability names for a collection of policy ids in a single query.
-     */
-    @Query("SELECT pc.policy.id AS policyId, c.name AS capabilityName FROM PolicyCapability pc " +
-           "JOIN pc.capability c " +
-           "WHERE pc.policy.id IN :policyIds " +
-           "AND c.isActive = true")
-    List<PolicyCapabilitySummary> findCapabilityNamesByPolicyIds(@Param("policyIds") Iterable<Long> policyIds);
-    
-    /**
      * Find policies linked to a specific endpoint
      */
     @Query("SELECT p FROM Policy p " +
@@ -115,17 +87,4 @@ public interface PolicyRepository extends JpaRepository<Policy, Long> {
 
     Optional<Policy> findTopByOrderByIdDesc();
 
-    /**
-     * Find policy by ID with capabilities eagerly loaded
-     */
-    @Query("SELECT p FROM Policy p " +
-           "LEFT JOIN FETCH p.policyCapabilities pc " +
-           "LEFT JOIN FETCH pc.capability " +
-           "WHERE p.id = :id")
-    Optional<Policy> findByIdWithCapabilities(@Param("id") Long id);
-
-    interface PolicyCapabilitySummary {
-        Long getPolicyId();
-        String getCapabilityName();
-    }
 }

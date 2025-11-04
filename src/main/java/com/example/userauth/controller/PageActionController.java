@@ -1,10 +1,8 @@
 package com.example.userauth.controller;
 
-import com.example.userauth.entity.Capability;
 import com.example.userauth.entity.Endpoint;
 import com.example.userauth.entity.PageAction;
 import com.example.userauth.entity.UIPage;
-import com.example.userauth.repository.CapabilityRepository;
 import com.example.userauth.repository.EndpointRepository;
 import com.example.userauth.repository.PageActionRepository;
 import com.example.userauth.repository.UIPageRepository;
@@ -33,17 +31,14 @@ public class PageActionController {
 
     private final PageActionRepository pageActionRepository;
     private final UIPageRepository uiPageRepository;
-    private final CapabilityRepository capabilityRepository;
     private final EndpointRepository endpointRepository;
 
     public PageActionController(
             PageActionRepository pageActionRepository,
             UIPageRepository uiPageRepository,
-            CapabilityRepository capabilityRepository,
             EndpointRepository endpointRepository) {
         this.pageActionRepository = pageActionRepository;
         this.uiPageRepository = uiPageRepository;
-        this.capabilityRepository = capabilityRepository;
         this.endpointRepository = endpointRepository;
     }
 
@@ -94,11 +89,7 @@ public class PageActionController {
         // Validate page
         UIPage page = uiPageRepository.findById(request.getPageId())
                 .orElseThrow(() -> new RuntimeException("Page not found: " + request.getPageId()));
-        
-        // Validate capability
-        Capability capability = capabilityRepository.findById(request.getCapabilityId())
-                .orElseThrow(() -> new RuntimeException("Capability not found: " + request.getCapabilityId()));
-        
+
         // Validate endpoint if provided
         Endpoint endpoint = null;
         if (request.getEndpointId() != null) {
@@ -108,7 +99,6 @@ public class PageActionController {
         
         PageAction action = new PageAction();
         action.setPage(page);
-        action.setCapability(capability);
         action.setEndpoint(endpoint);
         action.setLabel(request.getLabel());
         action.setAction(request.getAction());
@@ -139,14 +129,7 @@ public class PageActionController {
                                 .orElseThrow(() -> new RuntimeException("Page not found: " + request.getPageId()));
                         action.setPage(page);
                     }
-                    
-                    // Validate capability if changed
-                    if (request.getCapabilityId() != null && !request.getCapabilityId().equals(action.getCapability().getId())) {
-                        Capability capability = capabilityRepository.findById(request.getCapabilityId())
-                                .orElseThrow(() -> new RuntimeException("Capability not found: " + request.getCapabilityId()));
-                        action.setCapability(capability);
-                    }
-                    
+
                     // Validate endpoint if changed
                     if (request.getEndpointId() != null) {
                         Endpoint endpoint = endpointRepository.findById(request.getEndpointId())
@@ -237,14 +220,7 @@ public class PageActionController {
         pageInfo.put("label", action.getPage().getLabel());
         pageInfo.put("route", action.getPage().getRoute());
         response.put("page", pageInfo);
-        
-        // Capability info
-        Map<String, Object> capabilityInfo = new HashMap<>();
-        capabilityInfo.put("id", action.getCapability().getId());
-        capabilityInfo.put("name", action.getCapability().getName());
-        capabilityInfo.put("description", action.getCapability().getDescription());
-        response.put("capability", capabilityInfo);
-        
+
         // Endpoint info (if exists)
         if (action.getEndpoint() != null) {
             Map<String, Object> endpointInfo = new HashMap<>();
@@ -263,7 +239,6 @@ public class PageActionController {
     
     public static class PageActionRequest {
         private Long pageId;
-        private Long capabilityId;
         private Long endpointId;
         private String label;
         private String action;
@@ -275,10 +250,7 @@ public class PageActionController {
         // Getters and Setters
         public Long getPageId() { return pageId; }
         public void setPageId(Long pageId) { this.pageId = pageId; }
-        
-        public Long getCapabilityId() { return capabilityId; }
-        public void setCapabilityId(Long capabilityId) { this.capabilityId = capabilityId; }
-        
+
         public Long getEndpointId() { return endpointId; }
         public void setEndpointId(Long endpointId) { this.endpointId = endpointId; }
         

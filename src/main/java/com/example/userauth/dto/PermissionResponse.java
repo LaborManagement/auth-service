@@ -9,21 +9,21 @@ public class PermissionResponse {
     private String username;
     private String fullName;
     private Set<String> roles;
-    private Set<String> permissions;
+    private Set<String> policies;
     private Map<String, Object> uiConfig;
     private List<NavigationItem> navigation;
     
     // Constructors
     public PermissionResponse() {}
     
-    public PermissionResponse(Long userId, String username, String fullName, 
-                            Set<String> roles, Set<String> permissions,
-                            Map<String, Object> uiConfig, List<NavigationItem> navigation) {
+    public PermissionResponse(Long userId, String username, String fullName,
+                              Set<String> roles, Set<String> policies,
+                              Map<String, Object> uiConfig, List<NavigationItem> navigation) {
         this.userId = userId;
         this.username = username;
         this.fullName = fullName;
         this.roles = roles;
-        this.permissions = permissions;
+        this.policies = policies;
         this.uiConfig = uiConfig;
         this.navigation = navigation;
     }
@@ -41,8 +41,8 @@ public class PermissionResponse {
     public Set<String> getRoles() { return roles; }
     public void setRoles(Set<String> roles) { this.roles = roles; }
     
-    public Set<String> getPermissions() { return permissions; }
-    public void setPermissions(Set<String> permissions) { this.permissions = permissions; }
+    public Set<String> getPolicies() { return policies; }
+    public void setPolicies(Set<String> policies) { this.policies = policies; }
     
     public Map<String, Object> getUiConfig() { return uiConfig; }
     public void setUiConfig(Map<String, Object> uiConfig) { this.uiConfig = uiConfig; }
@@ -58,19 +58,19 @@ public class PermissionResponse {
         private String icon;
         private String section;
         private List<NavigationItem> children;
-        private Set<String> requiredPermissions;
+        private Set<String> requiredPolicies;
         
         // Constructors
         public NavigationItem() {}
         
-        public NavigationItem(String id, String label, String path, String icon, 
-                            String section, Set<String> requiredPermissions) {
+        public NavigationItem(String id, String label, String path, String icon,
+                              String section, Set<String> requiredPolicies) {
             this.id = id;
             this.label = label;
             this.path = path;
             this.icon = icon;
             this.section = section;
-            this.requiredPermissions = requiredPermissions;
+            this.requiredPolicies = requiredPolicies;
         }
         
         // Getters and Setters
@@ -92,7 +92,7 @@ public class PermissionResponse {
         public List<NavigationItem> getChildren() { return children; }
         public void setChildren(List<NavigationItem> children) { this.children = children; }
         
-        public Set<String> getRequiredPermissions() { return requiredPermissions; }
-        public void setRequiredPermissions(Set<String> requiredPermissions) { this.requiredPermissions = requiredPermissions; }
+        public Set<String> getRequiredPolicies() { return requiredPolicies; }
+        public void setRequiredPolicies(Set<String> requiredPolicies) { this.requiredPolicies = requiredPolicies; }
     }
 }

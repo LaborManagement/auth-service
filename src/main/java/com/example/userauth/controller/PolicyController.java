@@ -1,11 +1,10 @@
 package com.example.userauth.controller;
 
-import com.example.userauth.entity.Capability;
+import com.example.userauth.entity.Endpoint;
+import com.example.userauth.entity.EndpointPolicy;
 import com.example.userauth.entity.Policy;
-import com.example.userauth.entity.PolicyCapability;
 import com.example.userauth.entity.Role;
-import com.example.userauth.repository.CapabilityRepository;
-import com.example.userauth.repository.PolicyCapabilityRepository;
+import com.example.userauth.repository.EndpointPolicyRepository;
 import com.example.userauth.repository.PolicyRepository;
 import com.example.userauth.repository.RoleRepository;
 import com.example.userauth.repository.RolePolicyRepository;
@@ -22,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -33,7 +33,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shared.common.annotation.Auditable;
 
 /**
- * Admin controller for managing policies and their capability assignments
+ * Admin controller for managing policies and their role assignments
  * Only accessible by ADMIN role
  */
 @RestController
@@ -47,22 +47,19 @@ public class PolicyController {
     private ObjectMapper objectMapper;
 
     private final PolicyRepository policyRepository;
-    private final CapabilityRepository capabilityRepository;
-    private final PolicyCapabilityRepository policyCapabilityRepository;
     private final RoleRepository roleRepository;
     private final RolePolicyRepository rolePolicyRepository;
+    private final EndpointPolicyRepository endpointPolicyRepository;
 
     public PolicyController(
             PolicyRepository policyRepository,
-            CapabilityRepository capabilityRepository,
-            PolicyCapabilityRepository policyCapabilityRepository,
             RoleRepository roleRepository,
-            RolePolicyRepository rolePolicyRepository) {
+            RolePolicyRepository rolePolicyRepository,
+            EndpointPolicyRepository endpointPolicyRepository) {
         this.policyRepository = policyRepository;
-        this.capabilityRepository = capabilityRepository;
-        this.policyCapabilityRepository = policyCapabilityRepository;
         this.roleRepository = roleRepository;
         this.rolePolicyRepository = rolePolicyRepository;
+        this.endpointPolicyRepository = endpointPolicyRepository;
     }
 
     /**
@@ -70,6 +67,7 @@ public class PolicyController {
      */
     @Auditable(action = "GET_ALL_POLICIES", resourceType = "POLICY")
     @GetMapping
+    @Transactional(readOnly = true)
     public ResponseEntity<List<Map<String, Object>>> getAllPolicies(HttpServletRequest request) {
         List<Policy> policies = policyRepository.findAll();
         List<Map<String, Object>> response = policies.stream()
@@ -94,8 +92,9 @@ public class PolicyController {
      */
     @GetMapping("/{id}")
     @SuppressWarnings("unchecked")
+    @Transactional(readOnly = true)
     public ResponseEntity<Map<String, Object>> getPolicyById(@PathVariable Long id, HttpServletRequest request) {
-        return policyRepository.findByIdWithCapabilities(id)
+        return policyRepository.findById(id)
                 .map(policy -> {
                     Map<String, Object> response = convertToResponse(policy);
                     try {
@@ -137,23 +136,17 @@ public class PolicyController {
         policy.setId(nextId);
         policy.setIsActive(request.getIsActive());
         Policy saved = policyRepository.save(policy);
-        
-        // Assign capabilities if provided
-        if (request.getCapabilityIds() != null && !request.getCapabilityIds().isEmpty()) {
-            assignCapabilities(saved.getId(), request.getCapabilityIds());
-        }
-        
-        // Fetch the policy with capabilities eagerly loaded
-        Policy policyWithCapabilities = policyRepository.findByIdWithCapabilities(saved.getId())
-                .orElseThrow(() -> new RuntimeException("Policy not found after creation"));
-        
-        return ResponseEntity.ok(convertToResponse(policyWithCapabilities));
+
+        return ResponseEntity.ok(convertToResponse(saved));
     }
 
     /**
      * Validate that all roles in the policy expression exist in the database
      */
     private void validateRolesInExpression(String expression) {
+        if (expression == null || expression.isBlank()) {
+            return;
+        }
         try {
             JsonNode policyExpression = objectMapper.readTree(expression);
             if (policyExpression.has("roles") && policyExpression.get("roles").isArray()) {
@@ -193,21 +186,7 @@ public class PolicyController {
                     policy.setIsActive(request.getIsActive());
                     policyRepository.save(policy);
                     
-                    // Update capabilities if provided
-                    if (request.getCapabilityIds() != null) {
-                        // Remove existing capabilities
-                        policyCapabilityRepository.deleteByPolicyId(id);
-                        // Add new capabilities
-                        if (!request.getCapabilityIds().isEmpty()) {
-                            assignCapabilities(id, request.getCapabilityIds());
-                        }
-                    }
-                    
-                    // Fetch the policy with capabilities eagerly loaded
-                    Policy policyWithCapabilities = policyRepository.findByIdWithCapabilities(id)
-                            .orElseThrow(() -> new RuntimeException("Policy not found"));
-                    
-                    return ResponseEntity.ok(convertToResponse(policyWithCapabilities));
+                    return ResponseEntity.ok(convertToResponse(policy));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -219,8 +198,9 @@ public class PolicyController {
     @Transactional
     public ResponseEntity<Void> deletePolicy(@PathVariable Long id) {
         if (policyRepository.existsById(id)) {
-            // Delete policy capabilities first
-            policyCapabilityRepository.deleteByPolicyId(id);
+            // Delete policy links first
+            endpointPolicyRepository.deleteByPolicyId(id);
+            rolePolicyRepository.deleteByPolicyId(id);
             // Delete policy
             policyRepository.deleteById(id);
             return ResponseEntity.noContent().build();
@@ -242,87 +222,6 @@ public class PolicyController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /**
-     * Get capabilities assigned to a policy
-     */
-    @GetMapping("/{id}/capabilities")
-    public ResponseEntity<List<Capability>> getPolicyCapabilities(@PathVariable Long id, HttpServletRequest request) {
-        List<PolicyCapability> policyCapabilities = policyCapabilityRepository.findByPolicyId(id);
-        List<Capability> capabilities = policyCapabilities.stream()
-                .map(PolicyCapability::getCapability)
-                .collect(Collectors.toList());
-        try {
-            String responseJson = objectMapper.writeValueAsString(capabilities);
-            String eTag = ETagUtil.generateETag(responseJson);
-            String ifNoneMatch = request.getHeader(HttpHeaders.IF_NONE_MATCH);
-            if (eTag.equals(ifNoneMatch)) {
-                return ResponseEntity.status(304).eTag(eTag).build();
-            }
-            return ResponseEntity.ok().eTag(eTag).body(capabilities);
-        } catch (Exception e) {
-            logger.error("Error processing capabilities response", e);
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
-    /**
-     * Assign capabilities to policy
-     */
-    @PostMapping("/{id}/capabilities")
-    @Transactional
-    public ResponseEntity<Map<String, Object>> assignCapabilitiesToPolicy(
-            @PathVariable Long id,
-            @RequestBody CapabilityAssignmentRequest request) {
-        
-        if (!policyRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
-        
-        assignCapabilities(id, request.getCapabilityIds());
-        
-        // Fetch the policy with capabilities eagerly loaded
-        Policy policyWithCapabilities = policyRepository.findByIdWithCapabilities(id)
-                .orElseThrow(() -> new RuntimeException("Policy not found"));
-        
-        return ResponseEntity.ok(convertToResponse(policyWithCapabilities));
-    }
-
-    /**
-     * Remove capability from policy
-     */
-    @DeleteMapping("/{id}/capabilities/{capabilityId}")
-    @Transactional
-    public ResponseEntity<Void> removeCapabilityFromPolicy(
-            @PathVariable Long id,
-            @PathVariable Long capabilityId) {
-        
-        policyCapabilityRepository.deleteByPolicyIdAndCapabilityId(id, capabilityId);
-        return ResponseEntity.noContent().build();
-    }
-
-    // Helper methods
-    
-    private void assignCapabilities(Long policyId, Set<Long> capabilityIds) {
-        Policy policy = policyRepository.findById(policyId)
-                .orElseThrow(() -> new RuntimeException("Policy not found"));
-        
-        long nextId = policyCapabilityRepository.findTopByOrderByIdDesc()
-                .map(existing -> existing.getId() + 1)
-                .orElse(1L);
-
-        for (Long capabilityId : capabilityIds) {
-            Capability capability = capabilityRepository.findById(capabilityId)
-                    .orElseThrow(() -> new RuntimeException("Capability not found: " + capabilityId));
-            
-            // Check if already exists
-            if (!policyCapabilityRepository.existsByPolicyIdAndCapabilityId(policyId, capabilityId)) {
-                PolicyCapability pc = new PolicyCapability(policy, capability);
-                pc.setId(nextId++);
-                policyCapabilityRepository.save(pc);
-            }
-        }
-    }
-    
     private Map<String, Object> convertToResponse(Policy policy) {
         Map<String, Object> response = new HashMap<>();
         response.put("id", policy.getId());
@@ -345,6 +244,23 @@ public class PolicyController {
                 })
                 .collect(Collectors.toList());
         response.put("roles", roleList);
+
+        List<EndpointPolicy> endpointPolicies = endpointPolicyRepository.findByPolicyId(policy.getId());
+        List<Map<String, Object>> endpoints = endpointPolicies.stream()
+                .map(EndpointPolicy::getEndpoint)
+                .filter(Objects::nonNull)
+                .map(endpoint -> {
+                    Map<String, Object> endpointMap = new HashMap<>();
+                    endpointMap.put("id", endpoint.getId());
+                    endpointMap.put("service", endpoint.getService());
+                    endpointMap.put("version", endpoint.getVersion());
+                    endpointMap.put("method", endpoint.getMethod());
+                    endpointMap.put("path", endpoint.getPath());
+                    endpointMap.put("description", endpoint.getDescription());
+                    return endpointMap;
+                })
+                .collect(Collectors.toList());
+        response.put("endpoints", endpoints);
         
         return response;
     }
@@ -357,7 +273,6 @@ public class PolicyController {
         private String type;
         private String expression;
         private Boolean isActive = true;
-        private Set<Long> capabilityIds;
 
         // Getters and Setters
         public String getName() { return name; }
@@ -374,15 +289,5 @@ public class PolicyController {
         
         public Boolean getIsActive() { return isActive; }
         public void setIsActive(Boolean isActive) { this.isActive = isActive; }
-        
-        public Set<Long> getCapabilityIds() { return capabilityIds; }
-        public void setCapabilityIds(Set<Long> capabilityIds) { this.capabilityIds = capabilityIds; }
-    }
-    
-    public static class CapabilityAssignmentRequest {
-        private Set<Long> capabilityIds;
-
-        public Set<Long> getCapabilityIds() { return capabilityIds; }
-        public void setCapabilityIds(Set<Long> capabilityIds) { this.capabilityIds = capabilityIds; }
     }
 }

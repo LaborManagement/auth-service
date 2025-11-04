@@ -12,7 +12,7 @@ import com.shared.entityaudit.listener.SharedEntityAuditListener;
 /**
  * Represents an action available on a UI page.
  * Actions are buttons/operations that users can perform on a page.
- * Each action requires a specific capability.
+ * Access is determined by checking if the user has access to the linked endpoint via their policies.
  */
 @Entity
 @EntityAuditEnabled
@@ -37,10 +37,6 @@ public class PageAction extends AbstractAuditableEntity<Long> {
     private String variant = "default"; // UI variant: primary, secondary, danger
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "capability_id", nullable = false)
-    private Capability capability; // Required capability
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "page_id", nullable = false)
     private UIPage page;
 
@@ -63,11 +59,11 @@ public class PageAction extends AbstractAuditableEntity<Long> {
     public PageAction() {
     }
 
-    public PageAction(String label, String action, Capability capability, UIPage page) {
+    public PageAction(String label, String action, UIPage page, Endpoint endpoint) {
         this.label = label;
         this.action = action;
-        this.capability = capability;
         this.page = page;
+        this.endpoint = endpoint;
         this.isActive = true;
         this.displayOrder = 0;
         this.variant = "default";
@@ -123,14 +119,6 @@ public class PageAction extends AbstractAuditableEntity<Long> {
 
     public void setVariant(String variant) {
         this.variant = variant;
-    }
-
-    public Capability getCapability() {
-        return capability;
-    }
-
-    public void setCapability(Capability capability) {
-        this.capability = capability;
     }
 
     public UIPage getPage() {
@@ -198,7 +186,6 @@ public class PageAction extends AbstractAuditableEntity<Long> {
                 "variant", variant,
                 "displayOrder", displayOrder,
                 "isActive", isActive,
-                "capabilityId", capability != null ? capability.getId() : null,
                 "pageId", page != null ? page.getId() : null,
                 "endpointId", endpoint != null ? endpoint.getId() : null,
                 "createdAt", createdAt != null ? createdAt.toString() : null,
@@ -212,7 +199,6 @@ public class PageAction extends AbstractAuditableEntity<Long> {
                 "id=" + id +
                 ", label='" + label + '\'' +
                 ", action='" + action + '\'' +
-                ", capabilityId=" + (capability != null ? capability.getId() : null) +
                 ", pageId=" + (page != null ? page.getId() : null) +
                 ", endpointId=" + (endpoint != null ? endpoint.getId() : null) +
                 '}';

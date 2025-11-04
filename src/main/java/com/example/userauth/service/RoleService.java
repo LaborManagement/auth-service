@@ -3,7 +3,6 @@ package com.example.userauth.service;
 import com.example.userauth.dao.RoleQueryDao;
 import com.example.userauth.entity.Role;
 import com.example.userauth.entity.User;
-import com.example.userauth.repository.CapabilityRepository;
 import com.example.userauth.repository.RoleRepository;
 import com.example.userauth.repository.RolePolicyRepository;
 import com.example.userauth.repository.UserRepository;
@@ -28,7 +27,7 @@ public class RoleService {
     @Autowired
     private RoleRepository roleRepository;
     
-    // DEPRECATED: Old Permission system - replaced by Capability+Policy architecture
+    // DEPRECATED: Old Permission system - replaced by policy-driven architecture
     // @Autowired
     // private PermissionRepository permissionRepository;
     
@@ -37,9 +36,6 @@ public class RoleService {
     
     @Autowired
     private RoleQueryDao roleQueryDao;
-
-    @Autowired
-    private CapabilityRepository capabilityRepository;
 
     @Autowired
     private RolePolicyRepository rolePolicyRepository;
@@ -51,10 +47,6 @@ public class RoleService {
         List<Role> roles = roleQueryDao.findAll();
 
         for (Role role : roles) {
-            Set<String> capabilities = new LinkedHashSet<>(
-                    capabilityRepository.findCapabilityNamesByRoleName(role.getName()));
-            role.setCapabilityNames(capabilities);
-
             // Use new RolePolicy-based query instead of deprecated findRBACPoliciesByRole
             Set<String> policies = new LinkedHashSet<>(
                     rolePolicyRepository.findPolicyNamesByRoleName(role.getName()));
@@ -80,9 +72,6 @@ public class RoleService {
         }
         
         Role role = roleOpt.get();
-        Set<String> capabilities = new LinkedHashSet<>(
-                capabilityRepository.findCapabilityNamesByRoleName(role.getName()));
-        role.setCapabilityNames(capabilities);
         
         // Use new RolePolicy-based query
         Set<String> policies = new LinkedHashSet<>(
@@ -102,9 +91,6 @@ public class RoleService {
         }
         
         Role role = roleOpt.get();
-        Set<String> capabilities = new LinkedHashSet<>(
-                capabilityRepository.findCapabilityNamesByRoleName(role.getName()));
-        role.setCapabilityNames(capabilities);
         
         // Use new RolePolicy-based query
         Set<String> policies = new LinkedHashSet<>(
@@ -189,8 +175,8 @@ public class RoleService {
     }
     
     /**
-     * DEPRECATED: Old permission system methods - no longer used in new Capability+Policy system
-     * These methods are commented out as the new system uses Capabilities and Policies instead.
+     * DEPRECATED: Legacy permission methods retained for reference only.
+     * The new system assigns access through Role → Policy → Endpoint relationships.
      */
     
     // public Role addPermissionToRole(Long roleId, Long permissionId) {
@@ -249,8 +235,6 @@ public class RoleService {
         }
 
         Role role = roleOpt.get();
-        Set<String> capabilities = new LinkedHashSet<>(capabilityRepository.findCapabilityNamesByRoleName(role.getName()));
-        role.setCapabilityNames(capabilities);
 
         // Use new RolePolicy-based query
         Set<String> policyNames = new LinkedHashSet<>(

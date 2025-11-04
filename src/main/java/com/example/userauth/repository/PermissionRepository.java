@@ -2,10 +2,10 @@ package com.example.userauth.repository;
 
 /**
  * DEPRECATED: Repository for old Permission system
- * The new system uses CapabilityRepository and PolicyRepository
+ * The new system uses role/policy assignments via RolePolicyRepository and PolicyRepository
  * This interface is disabled (not extending JpaRepository) to prevent Spring from creating a bean
  * 
- * @deprecated Use {@link CapabilityRepository} and {@link PolicyRepository} instead
+ * @deprecated Use {@link com.example.userauth.repository.RolePolicyRepository} and {@link PolicyRepository} instead
  */
 @Deprecated
 // @Repository - REMOVED to prevent Spring from creating bean

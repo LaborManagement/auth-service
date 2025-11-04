@@ -13,8 +13,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Role entity for the NEW Capability+Policy+Service Catalog authorization system.
- * Roles are assigned to users and linked to policies that grant capabilities.
+ * Role entity for the policy-driven authorization system.
+ * Roles are assigned to users and linked to policies that grant endpoint access.
  * This replaces the old role_permissions system.
  */
 @Entity
@@ -55,9 +55,6 @@ public class Role extends AbstractAuditableEntity<Long> {
     @JsonIgnore // prevent circular serialization
     private Set<RolePolicy> rolePolicies = new HashSet<>();
     
-    @Transient
-    private Set<String> capabilityNames = new HashSet<>();
-
     @Transient
     private Set<String> policyNames = new HashSet<>();
 
@@ -155,23 +152,6 @@ public class Role extends AbstractAuditableEntity<Long> {
 
     public void setPolicyNames(Set<String> policyNames) {
         this.policyNames = policyNames != null ? policyNames : new HashSet<>();
-    }
-
-    /**
-     * Capability names are derived from policies (transitive relationship).
-     * NOT serialized to JSON - use policies endpoint to get capabilities.
-     * @deprecated Access capabilities through policies, not directly from roles
-     */
-    @JsonIgnore
-    @Deprecated
-    public Set<String> getCapabilityNames() {
-        return capabilityNames;
-    }
-
-    @JsonIgnore
-    @Deprecated
-    public void setCapabilityNames(Set<String> capabilityNames) {
-        this.capabilityNames = capabilityNames != null ? capabilityNames : new HashSet<>();
     }
     
     // Helper methods

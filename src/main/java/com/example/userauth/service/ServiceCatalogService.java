@@ -1,13 +1,11 @@
 package com.example.userauth.service;
 
 import com.example.userauth.entity.Endpoint;
+import com.example.userauth.entity.PageAction;
 import com.example.userauth.entity.UIPage;
-import com.example.userauth.entity.Policy;
-import com.example.userauth.entity.EndpointPolicy;
 import com.example.userauth.repository.EndpointRepository;
+import com.example.userauth.repository.PageActionRepository;
 import com.example.userauth.repository.UIPageRepository;
-import com.example.userauth.repository.PolicyRepository;
-import com.example.userauth.repository.EndpointPolicyRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,33 +21,34 @@ import java.util.stream.Collectors;
 @Service
 public class ServiceCatalogService {
     /**
-     * Get all endpoints for a given UI page id using capability-policy-endpoint linkage
+     * Get all endpoints for a given UI page id by traversing page actions directly.
      *
      * @param pageId the UI page id
      * @return List of endpoints for the given page id
      */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getEndpointsByPageId(Long pageId) {
-        // 1. Get requiredCapability from UIPage
         Optional<UIPage> pageOpt = uiPageRepository.findById(pageId);
-        if (pageOpt.isEmpty()) return List.of();
-        String capability = pageOpt.get().getRequiredCapability();
-        if (capability == null) return List.of();
+        if (pageOpt.isEmpty() || Boolean.FALSE.equals(pageOpt.get().getIsActive())) {
+            return List.of();
+        }
 
-        // 2. Find all policies that grant this capability
-        List<Policy> policies = policyRepository.findPoliciesByCapabilityName(capability);
-        if (policies.isEmpty()) return List.of();
-        List<Long> policyIds = policies.stream().map(Policy::getId).toList();
+        List<PageAction> actions = pageActionRepository.findByPageIdAndIsActiveTrueOrderByDisplayOrder(pageId);
+        if (actions.isEmpty()) {
+            return List.of();
+        }
 
-        // 3. Find all endpoint-policy associations for these policies
-        List<EndpointPolicy> endpointPolicies = endpointPolicyRepository.findByPolicyIdIn(policyIds);
-        if (endpointPolicies.isEmpty()) return List.of();
-        List<Long> endpointIds = endpointPolicies.stream().map(ep -> ep.getEndpoint().getId()).toList();
+        Map<Long, Map<String, Object>> uniqueEndpoints = new LinkedHashMap<>();
+        for (PageAction action : actions) {
+            Endpoint endpoint = action.getEndpoint();
+            if (endpoint != null && Boolean.TRUE.equals(endpoint.getIsActive())) {
+                uniqueEndpoints.computeIfAbsent(endpoint.getId(), id -> mapEndpointToDto(endpoint));
+            }
+        }
 
-        // 4. Fetch endpoints by these ids
-    List<Endpoint> endpoints = endpointRepository.findByIdIn(endpointIds);
-        return endpoints.stream().map(this::mapEndpointToDto).toList();
+        return new ArrayList<>(uniqueEndpoints.values());
     }
+    
     /**
      * Get all endpoints for a given parent_id by traversing all lineage (descendants)
      *
@@ -75,14 +74,14 @@ public class ServiceCatalogService {
 
     private final EndpointRepository endpointRepository;
     private final UIPageRepository uiPageRepository;
-    private final PolicyRepository policyRepository;
-    private final EndpointPolicyRepository endpointPolicyRepository;
+    private final PageActionRepository pageActionRepository;
 
-    public ServiceCatalogService(EndpointRepository endpointRepository, UIPageRepository uiPageRepository, PolicyRepository policyRepository, EndpointPolicyRepository endpointPolicyRepository) {
+    public ServiceCatalogService(EndpointRepository endpointRepository,
+                                 UIPageRepository uiPageRepository,
+                                 PageActionRepository pageActionRepository) {
         this.endpointRepository = endpointRepository;
         this.uiPageRepository = uiPageRepository;
-        this.policyRepository = policyRepository;
-        this.endpointPolicyRepository = endpointPolicyRepository;
+        this.pageActionRepository = pageActionRepository;
     }
     // ...existing code...
     // Helper method for endpoint policies by multiple policy ids

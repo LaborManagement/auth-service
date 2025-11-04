@@ -56,7 +56,7 @@ public class InternalAuthorizationController {
     }
 
     /**
-     * Resolve the authorization matrix for a user (roles and capabilities).
+     * Resolve the authorization matrix for a user (roles and policies).
      */
     @GetMapping("/users/{userId}/matrix")
     public ResponseEntity<AuthorizationMatrix> getAuthorizationMatrix(@PathVariable Long userId) {

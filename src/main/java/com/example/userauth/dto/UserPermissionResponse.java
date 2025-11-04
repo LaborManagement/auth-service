@@ -6,10 +6,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * DTO for user information with roles, permissions, and API endpoints
+ * DTO for user information with roles, policies, and API endpoints
  * Returned by /api/auth/me endpoint
- * 
- * Structure: User → Roles → Permissions → API Endpoints
+ *
+ * Structure: User → Roles → Policies → API Endpoints
  */
 public class UserPermissionResponse {
     
@@ -18,11 +18,11 @@ public class UserPermissionResponse {
     private String email;
     private String fullName;
     private List<RoleInfo> roles;                              // User's roles
-    private Map<String, List<PermissionInfo>> permissions;     // Permissions grouped by module
+    private Map<String, List<PolicyInfo>> policies;            // Policies grouped by module
     
     public UserPermissionResponse() {
         this.roles = new ArrayList<>();
-        this.permissions = new HashMap<>();
+        this.policies = new HashMap<>();
     }
     
     public UserPermissionResponse(Long userId, String username, String email, String fullName) {
@@ -74,12 +74,12 @@ public class UserPermissionResponse {
         this.roles = roles;
     }
     
-    public Map<String, List<PermissionInfo>> getPermissions() {
-        return permissions;
+    public Map<String, List<PolicyInfo>> getPolicies() {
+        return policies;
     }
     
-    public void setPermissions(Map<String, List<PermissionInfo>> permissions) {
-        this.permissions = permissions;
+    public void setPolicies(Map<String, List<PolicyInfo>> policies) {
+        this.policies = policies;
     }
     
     @Override
@@ -90,7 +90,7 @@ public class UserPermissionResponse {
                 ", email='" + email + '\'' +
                 ", fullName='" + fullName + '\'' +
                 ", roles=" + roles +
-                ", permissions=" + permissions +
+                ", policies=" + policies +
                 '}';
     }
     
@@ -148,18 +148,18 @@ public class UserPermissionResponse {
     /**
      * Nested class for permission information with API endpoints
      */
-    public static class PermissionInfo {
+    public static class PolicyInfo {
         private Long id;
         private String name;
         private String description;
         private String module;
         private List<ApiEndpoint> apiEndpoints;
         
-        public PermissionInfo() {
+        public PolicyInfo() {
             this.apiEndpoints = new ArrayList<>();
         }
         
-        public PermissionInfo(Long id, String name, String description, String module) {
+        public PolicyInfo(Long id, String name, String description, String module) {
             this();
             this.id = id;
             this.name = name;
@@ -209,7 +209,7 @@ public class UserPermissionResponse {
         
         @Override
         public String toString() {
-            return "PermissionInfo{" +
+            return "PolicyInfo{" +
                     "id=" + id +
                     ", name='" + name + '\'' +
                     ", module='" + module + '\'' +

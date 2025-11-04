@@ -7,20 +7,21 @@ import java.util.Set;
 /**
  * Immutable snapshot representing the authorization state for a user.
  * This is built on-demand (no caching yet) and reused by UI and backend enforcement.
+ * 
+ * Authorization is now directly based on: User → Role → Policy → Endpoint
  */
 public class AuthorizationMatrix {
 
     private final Long userId;
     private final Integer permissionVersion;
     private final Set<String> roles;
-    private final Set<String> capabilities;
+    private final Set<String> policies;
 
-    public AuthorizationMatrix(Long userId, Integer permissionVersion,
-                               Set<String> roles, Set<String> capabilities) {
+    public AuthorizationMatrix(Long userId, Integer permissionVersion, Set<String> roles, Set<String> policies) {
         this.userId = userId;
         this.permissionVersion = permissionVersion;
         this.roles = roles != null ? Collections.unmodifiableSet(new HashSet<>(roles)) : Set.of();
-        this.capabilities = capabilities != null ? Collections.unmodifiableSet(new HashSet<>(capabilities)) : Set.of();
+        this.policies = policies != null ? Collections.unmodifiableSet(new HashSet<>(policies)) : Set.of();
     }
 
     public Long getUserId() {
@@ -35,7 +36,7 @@ public class AuthorizationMatrix {
         return roles;
     }
 
-    public Set<String> getCapabilities() {
-        return capabilities;
+    public Set<String> getPolicies() {
+        return policies;
     }
 }

@@ -83,17 +83,16 @@ public class PolicyEngineService {
     }
 
     /**
-     * Evaluate if user with given roles satisfies a page access policy
-     * Pages don't have direct policy links - they have actions with required capabilities
-     * This method checks if user has any capabilities for the page's actions
-     * 
+     * Evaluate if user with given roles satisfies a page access policy.
+     * Pages inherit access from the actions/endpoints they expose.
+     *
      * @param pageId The UI page to check access for
      * @param userRoles The roles the user has
      * @return true if access is granted, false otherwise
      */
     public boolean evaluatePageAccess(Long pageId, Set<String> userRoles) {
         // For now, allow all authenticated users to access pages
-        // Real authorization happens at the action level via capabilities
+        // Real authorization happens at the action level via endpoint policies
         logger.debug("Page access evaluation for pageId: {} with roles: {}", pageId, userRoles);
         return userRoles != null && !userRoles.isEmpty();
     }

@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
  * Junction entity for Many-to-Many relationship between Role and Policy.
  * This replaces the old JSON expression-based policy assignment.
  * 
- * Architecture: Role → RolePolicy → Policy → PolicyCapability → Capability
+ * Architecture: Role → RolePolicy → Policy → EndpointPolicy → Endpoint
  * 
  * Benefits:
  * - Clean relational model (no JSON parsing)

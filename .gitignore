@@ -10,3 +10,5 @@ logs/
 docs/user_pwd.md
 docs/onboarding/
 *.sql
+/migrations/
+capability_removal_context.md

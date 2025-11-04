@@ -14,7 +14,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.stereotype.Component;
 
-import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -73,22 +72,10 @@ public class DynamicEndpointAuthorizationManager implements AuthorizationManager
 
         AuthorizationMatrix matrix = authorizationService.buildAuthorizationMatrix(userId);
 
-        Set<String> requiredCapabilities = metadata.getRequiredCapabilities();
-        boolean allowed;
-
-        if (!requiredCapabilities.isEmpty()) {
-            allowed = requiredCapabilities.stream().anyMatch(matrix.getCapabilities()::contains);
-            if (!allowed) {
-                logger.debug("Denied {} {} for user {} - missing capabilities {} (has {})",
-                        method, request.getRequestURI(), userId, requiredCapabilities, matrix.getCapabilities());
-            }
-        } else {
-            // Fallback to policy expression evaluation when no capabilities are mapped
-            allowed = policyEngineService.evaluateEndpointAccess(metadata.getEndpointId(), matrix.getRoles());
-            if (!allowed) {
-                logger.debug("Denied {} {} for user {} - policy expressions not satisfied (roles: {})",
-                        method, request.getRequestURI(), userId, matrix.getRoles());
-            }
+        boolean allowed = policyEngineService.evaluateEndpointAccess(metadata.getEndpointId(), matrix.getRoles());
+        if (!allowed) {
+            logger.debug("Denied {} {} for user {} - policies {} not satisfied by roles {}",
+                    method, request.getRequestURI(), userId, metadata.getPolicyIds(), matrix.getRoles());
         }
 
         if (allowed) {

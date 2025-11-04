@@ -36,32 +36,9 @@ public interface PageActionRepository extends JpaRepository<PageAction, Long> {
     List<PageAction> findByIsActiveTrue();
 
     /**
-     * Find actions by required capability
-     */
-    @Query("SELECT pa FROM PageAction pa WHERE pa.capability.name = :capabilityName")
-    List<PageAction> findByCapabilityName(@Param("capabilityName") String capabilityName);
-
-    /**
      * Find actions by action type (CREATE, EDIT, DELETE, etc.)
      */
     List<PageAction> findByAction(String action);
-
-    /**
-     * Find all actions accessible to a role
-     * This checks if the required capability is granted by policies for that role
-     */
-    @Query("SELECT DISTINCT pa FROM PageAction pa " +
-           "WHERE pa.capability.id IN (" +
-           "  SELECT c.id FROM Capability c " +
-           "  JOIN PolicyCapability pc ON pc.capability.id = c.id " +
-           "  JOIN Policy p ON p.id = pc.policy.id " +
-           "  WHERE CAST(p.expression AS string) LIKE CONCAT('%', :roleName, '%') " +
-           "  AND p.isActive = true " +
-           "  AND c.isActive = true" +
-           ") " +
-           "AND pa.isActive = true " +
-           "ORDER BY pa.page.id, pa.displayOrder")
-    List<PageAction> findAccessibleByRole(@Param("roleName") String roleName);
 
     /**
      * Find actions for pages in a specific module
@@ -95,7 +72,7 @@ public interface PageActionRepository extends JpaRepository<PageAction, Long> {
     
     /**
      * Find all actions that use a specific endpoint
-     * Used for capability-based endpoint access checking
+     * Useful for authorization and audit backreferences
      */
     List<PageAction> findByEndpointId(Long endpointId);
     

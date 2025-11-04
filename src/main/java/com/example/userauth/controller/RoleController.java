@@ -155,15 +155,15 @@ public class RoleController {
     }
     
     /**
-     * DEPRECATED: Old permission system endpoints - replaced by Capability+Policy system
-     * Use PolicyEngineService and AuthorizationService instead
+     * DEPRECATED: Legacy permission endpoints kept for reference only.
+     * The active authorization flow relies on Role → Policy → Endpoint mappings.
      */
     
     // @PostMapping("/{roleId}/permissions/{permissionId}")
     // @Operation(summary = "Add permission to role")
     // public ResponseEntity<Role> addPermissionToRole(@PathVariable Long roleId, 
     //                                                  @PathVariable Long permissionId) {
-    //     // OLD SYSTEM - use Capability+Policy assignment instead
+    //     // OLD SYSTEM - superseded by policy assignments
     //     return ResponseEntity.status(HttpStatus.GONE)
     //             .body(null); // 410 Gone
     // }
@@ -172,7 +172,7 @@ public class RoleController {
     // @Operation(summary = "Remove permission from role")
     // public ResponseEntity<Role> removePermissionFromRole(@PathVariable Long roleId, 
     //                                                       @PathVariable Long permissionId) {
-    //     // OLD SYSTEM - use Capability+Policy assignment instead
+    //     // OLD SYSTEM - superseded by policy assignments
     //     return ResponseEntity.status(HttpStatus.GONE)
     //             .body(null); // 410 Gone
     // }

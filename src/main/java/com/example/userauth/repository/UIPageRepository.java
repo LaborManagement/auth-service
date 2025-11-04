@@ -3,7 +3,6 @@ package com.example.userauth.repository;
 import com.example.userauth.entity.UIPage;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -52,11 +51,6 @@ public interface UIPageRepository extends JpaRepository<UIPage, Long> {
     List<UIPage> findByParentIdIsNullAndIsMenuItemTrueAndIsActiveTrueOrderByDisplayOrder();
 
     /**
-     * Find pages by required capability
-     */
-    List<UIPage> findByRequiredCapability(String requiredCapability);
-
-    /**
      * Find active pages for a specific module
      */
     List<UIPage> findByModuleAndIsActiveTrueOrderByDisplayOrder(String module);
@@ -67,25 +61,7 @@ public interface UIPageRepository extends JpaRepository<UIPage, Long> {
     boolean existsByKey(String key);
 
     /**
-     * Find pages accessible to a role
-     * This checks if the required capability is granted by policies for that role
-     */
-    @Query("SELECT DISTINCT p FROM UIPage p " +
-           "WHERE p.requiredCapability IN (" +
-           "  SELECT c.name FROM Capability c " +
-           "  JOIN PolicyCapability pc ON pc.capability.id = c.id " +
-           "  JOIN Policy pol ON pol.id = pc.policy.id " +
-           "  WHERE CAST(pol.expression AS string) LIKE CONCAT('%', :roleName, '%') " +
-           "  AND pol.isActive = true " +
-           "  AND c.isActive = true" +
-           ") " +
-           "AND p.isActive = true " +
-           "AND p.isMenuItem = true " +
-           "ORDER BY p.displayOrder")
-    List<UIPage> findAccessibleByRole(@Param("roleName") String roleName);
-
-    /**
-     * Find all pages with their required capabilities (for building menu tree)
+     * Find all pages used to build the navigation tree.
      */
     @Query("SELECT p FROM UIPage p " +
            "WHERE p.isActive = true " +

@@ -237,7 +237,7 @@ public class AuthService {
             userRepository.findByRole(legacyRole)
                     .forEach(user -> usersById.put(user.getId(), user));
         } catch (IllegalArgumentException ignored) {
-            // Role name does not map to legacy enum; continue with capability-based lookup
+            // Role name does not map to legacy enum; fallback to repository lookup
         }
 
         userRepository.findByRoleName(normalized)
