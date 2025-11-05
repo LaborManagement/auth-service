@@ -518,6 +518,17 @@ public class AuthService {
             })
             .collect(Collectors.toSet());
         
+        // Fetch boardId and employerId from UserTenantAclRepository
+        String boardId = null;
+        String employerId = null;
+        if (user.getId() != null) {
+            List<com.example.userauth.entity.UserTenantAcl> aclList = userTenantAclRepository.findByUserId(user.getId());
+            if (!aclList.isEmpty()) {
+                // For simplicity, take the first ACL record (if multiple exist)
+                boardId = aclList.get(0).getBoardId();
+                employerId = aclList.get(0).getEmployerId();
+            }
+        }
         return new UserListResponse(
             user.getId(),
             user.getUsername(),
@@ -526,7 +537,9 @@ public class AuthService {
             user.isEnabled(),
             roleInfos,
             user.getCreatedAt(),
-            user.getLastLogin()
+            user.getLastLogin(),
+            boardId,
+            employerId
         );
     }
 

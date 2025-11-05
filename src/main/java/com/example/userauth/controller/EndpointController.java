@@ -126,10 +126,8 @@ public class EndpointController {
         endpoint.setIsActive(request.getIsActive());
         Endpoint saved = endpointRepository.save(endpoint);
         
-        // Assign policies if provided
-        if (request.getPolicyIds() != null && !request.getPolicyIds().isEmpty()) {
-            assignPolicies(saved.getId(), request.getPolicyIds());
-        }
+    // Policy assignment via this request is deprecated/removed
+    // assignPolicies(saved.getId(), ...); // No longer handled here
         
         // Fetch the endpoint with policies eagerly loaded
         Endpoint endpointWithPolicies = endpointRepository.findByIdWithPolicies(saved.getId())
@@ -158,15 +156,9 @@ public class EndpointController {
                     endpoint.setIsActive(request.getIsActive());
                     endpointRepository.save(endpoint);
                     
-                    // Update policies if provided
-                    if (request.getPolicyIds() != null) {
-                        // Remove existing policies
-                        endpointPolicyRepository.deleteByEndpointId(id);
-                        // Add new policies
-                        if (!request.getPolicyIds().isEmpty()) {
-                            assignPolicies(id, request.getPolicyIds());
-                        }
-                    }
+                    // Policy assignment via this request is deprecated/removed
+                    // endpointPolicyRepository.deleteByEndpointId(id);
+                    // assignPolicies(id, ...); // No longer handled here
                     
                     // Fetch the endpoint with policies eagerly loaded
                     Endpoint endpointWithPolicies = endpointRepository.findByIdWithPolicies(id)
@@ -390,13 +382,12 @@ public class EndpointController {
     // DTO classes
     
     public static class EndpointRequest {
-        private String service;
-        private String version;
-        private String method;
-        private String path;
-        private String description;
-        private Boolean isActive = true;
-        private Set<Long> policyIds;
+    private String service;
+    private String version;
+    private String method;
+    private String path;
+    private String description;
+    private Boolean isActive = true;
 
         // Getters and Setters
         public String getService() { return service; }
@@ -416,9 +407,7 @@ public class EndpointController {
         
         public Boolean getIsActive() { return isActive; }
         public void setIsActive(Boolean isActive) { this.isActive = isActive; }
-        
-        public Set<Long> getPolicyIds() { return policyIds; }
-        public void setPolicyIds(Set<Long> policyIds) { this.policyIds = policyIds; }
+    // Removed policyIds
     }
 
     public static class PolicyAssignmentRequest {

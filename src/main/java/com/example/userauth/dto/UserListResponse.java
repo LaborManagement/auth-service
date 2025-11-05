@@ -16,13 +16,16 @@ public class UserListResponse {
     private Set<RoleInfo> roles;
     private LocalDateTime createdAt;
     private LocalDateTime lastLogin;
+    private String boardId;
+    private String employerId;
     
     public UserListResponse() {
     }
     
     public UserListResponse(Long id, String username, String email, String fullName, 
                            Boolean isActive, Set<RoleInfo> roles, 
-                           LocalDateTime createdAt, LocalDateTime lastLogin) {
+                           LocalDateTime createdAt, LocalDateTime lastLogin,
+                           String boardId, String employerId) {
         this.id = id;
         this.username = username;
         this.email = email;
@@ -31,6 +34,24 @@ public class UserListResponse {
         this.roles = roles;
         this.createdAt = createdAt;
         this.lastLogin = lastLogin;
+        this.boardId = boardId;
+        this.employerId = employerId;
+    }
+
+    public String getBoardId() {
+        return boardId;
+    }
+
+    public void setBoardId(String boardId) {
+        this.boardId = boardId;
+    }
+
+    public String getEmployerId() {
+        return employerId;
+    }
+
+    public void setEmployerId(String employerId) {
+        this.employerId = employerId;
     }
     
     // Getters and Setters
