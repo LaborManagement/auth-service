@@ -29,11 +29,8 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.time.Instant;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -209,41 +206,23 @@ public class AuthService {
         return Optional.empty();
     }
     
-    // READ OPERATIONS - Using JPA repository to load roles relationship
+    // READ OPERATIONS - Using jOOQ query DAO for richer projections
     @Transactional(readOnly = true)
-    public List<User> getAllUsers() {
-        logger.debug("Fetching all users with roles");
-        return userRepository.findAll();
+    public List<UserQueryDao.UserWithDetails> getAllUsers() {
+        logger.debug("Fetching all users with roles and policies via query DAO");
+        return userQueryDao.findAllWithDetails();
     }
     
     @Transactional(readOnly = true)
-    public List<User> getUsersByRole(UserRole role) {
-        logger.debug("Fetching users by role: {} with roles loaded", role);
-        return userRepository.findByRole(role);
+    public List<UserQueryDao.UserWithDetails> getUsersByRole(UserRole role) {
+        logger.debug("Fetching users by legacy role: {}", role);
+        return userQueryDao.findByPrimaryRole(role);
     }
 
     @Transactional(readOnly = true)
-    public List<User> getUsersByRoleName(String roleName) {
-        logger.debug("Fetching users by role name: {} with roles loaded", roleName);
-        if (!StringUtils.hasText(roleName)) {
-            return List.of();
-        }
-
-        Map<Long, User> usersById = new LinkedHashMap<>();
-
-        String normalized = roleName.trim();
-        try {
-            UserRole legacyRole = UserRole.valueOf(normalized.toUpperCase(Locale.ROOT));
-            userRepository.findByRole(legacyRole)
-                    .forEach(user -> usersById.put(user.getId(), user));
-        } catch (IllegalArgumentException ignored) {
-            // Role name does not map to legacy enum; fallback to repository lookup
-        }
-
-        userRepository.findByRoleName(normalized)
-                .forEach(user -> usersById.put(user.getId(), user));
-
-        return List.copyOf(usersById.values());
+    public List<UserQueryDao.UserWithDetails> getUsersByRoleName(String roleName) {
+        logger.debug("Fetching users by role name: {} via query DAO", roleName);
+        return userQueryDao.findByRoleNameWithDetails(roleName);
     }
     
     @Transactional(readOnly = true)
@@ -485,19 +464,19 @@ public class AuthService {
     }
     
     /**
-     * Convert User entities to UserListResponse DTOs.
+     * Convert User projections to UserListResponse DTOs.
      * This avoids Hibernate proxy serialization issues.
      */
-    public List<UserListResponse> convertToUserListResponse(List<User> users) {
+    public List<UserListResponse> convertToUserListResponse(List<UserQueryDao.UserWithDetails> users) {
         return users.stream()
             .map(this::convertToUserListResponse)
             .collect(Collectors.toList());
     }
     
     /**
-     * Convert a single User entity to UserListResponse DTO.
+     * Convert a single User projection to UserListResponse DTO.
      */
-    private UserListResponse convertToUserListResponse(User user) {
+    private UserListResponse convertToUserListResponse(UserQueryDao.UserWithDetails user) {
         Set<UserListResponse.RoleInfo> roleInfos = user.getRoles().stream()
             .map(role -> {
                 Set<UserListResponse.PolicyInfo> policyInfos = role.getPolicies().stream()
@@ -517,29 +496,17 @@ public class AuthService {
                 );
             })
             .collect(Collectors.toSet());
-        
-        // Fetch boardId and employerId from UserTenantAclRepository
-        String boardId = null;
-        String employerId = null;
-        if (user.getId() != null) {
-            List<com.example.userauth.entity.UserTenantAcl> aclList = userTenantAclRepository.findByUserId(user.getId());
-            if (!aclList.isEmpty()) {
-                // For simplicity, take the first ACL record (if multiple exist)
-                boardId = aclList.get(0).getBoardId();
-                employerId = aclList.get(0).getEmployerId();
-            }
-        }
         return new UserListResponse(
             user.getId(),
             user.getUsername(),
             user.getEmail(),
             user.getFullName(),
-            user.isEnabled(),
+            user.getEnabled(),
             roleInfos,
             user.getCreatedAt(),
             user.getLastLogin(),
-            boardId,
-            employerId
+            user.getBoardId(),
+            user.getEmployerId()
         );
     }
 

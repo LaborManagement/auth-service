@@ -15,6 +15,14 @@
         <java.version>17</java.version>
         <spring.boot.version>3.2.5</spring.boot.version>
         <prowideswift.version>SRU2024-10.2.13</prowideswift.version>
+        <jooq.version>3.18.7</jooq.version>
+        <jooq.codegen.skip>true</jooq.codegen.skip>
+        <jooq.codegen.jdbc.url>${env.AUTH_DB_URL}</jooq.codegen.jdbc.url>
+        <jooq.codegen.jdbc.user>${env.AUTH_DB_USER}</jooq.codegen.jdbc.user>
+        <jooq.codegen.jdbc.password>${env.AUTH_DB_PASSWORD}</jooq.codegen.jdbc.password>
+        <jooq.codegen.database.schema>public</jooq.codegen.database.schema>
+        <jooq.codegen.output.dir>${project.build.directory}/generated-sources/jooq</jooq.codegen.output.dir>
+        <jooq.codegen.target.package>com.example.userauth.jooq</jooq.codegen.target.package>
     </properties>
 
     <dependencyManagement>
@@ -35,10 +43,10 @@
             <artifactId>shared-lib</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
-    <dependency>
-    <groupId>com.fasterxml.jackson.datatype</groupId>
-    <artifactId>jackson-datatype-jsr310</artifactId>
-</dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -50,6 +58,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jooq</groupId>
+            <artifactId>jooq</artifactId>
+            <version>${jooq.version}</version>
         </dependency>
         <!-- Legacy MySQL driver retained for rollback during PostgreSQL migration
         <dependency>
@@ -141,6 +154,59 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.jooq</groupId>
+                <artifactId>jooq-codegen-maven</artifactId>
+                <version>${jooq.version}</version>
+                <executions>
+                    <execution>
+                        <id>generate-jooq</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${jooq.codegen.skip}</skip>
+                            <jdbc>
+                                <driver>org.postgresql.Driver</driver>
+                                <url>${jooq.codegen.jdbc.url}</url>
+                                <user>${jooq.codegen.jdbc.user}</user>
+                                <password>${jooq.codegen.jdbc.password}</password>
+                            </jdbc>
+                            <generator>
+                                <name>org.jooq.codegen.JavaGenerator</name>
+                                <database>
+                                    <name>org.jooq.meta.postgres.PostgresDatabase</name>
+                                    <inputSchema>${jooq.codegen.database.schema}</inputSchema>
+                                </database>
+                                <target>
+                                    <packageName>${jooq.codegen.target.package}</packageName>
+                                    <directory>${jooq.codegen.output.dir}</directory>
+                                </target>
+                            </generator>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>add-jooq-generated-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${jooq.codegen.output.dir}</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

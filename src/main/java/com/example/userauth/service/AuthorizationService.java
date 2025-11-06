@@ -810,4 +810,29 @@ public class AuthorizationService {
         logger.debug("User has access to {} pages (including parent pages)", accessiblePages.size());
         return accessiblePages;
     }
+
+
+    /**
+     * Build the RBAC access matrix (user → role → policy → endpoint) for all users.
+     *
+     * @return Map containing RBAC structures and summary metadata for all users
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getUserAccessMatrixForAllUsers() {
+        List<User> allUsers = userRepository.findAll();
+        List<Map<String, Object>> userMatrices = new ArrayList<>();
+        for (User user : allUsers) {
+            try {
+                Map<String, Object> matrix = getUserAccessMatrixForUser(user.getId());
+                userMatrices.add(matrix);
+            } catch (Exception ex) {
+                // Optionally log or skip users that fail
+            }
+        }
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("generated_at", Instant.now().toString());
+        response.put("version", System.currentTimeMillis());
+        response.put("users", userMatrices);
+        return response;
+    }
 }

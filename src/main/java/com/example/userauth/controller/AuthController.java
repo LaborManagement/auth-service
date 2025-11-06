@@ -5,6 +5,7 @@ import com.example.userauth.entity.Role;
 import com.example.userauth.entity.User;
 import com.example.userauth.entity.UserRole;
 import com.example.userauth.service.AuthService;
+import com.example.userauth.dao.UserQueryDao;
 import com.example.userauth.service.UIConfigService;
 import com.example.userauth.service.RoleService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -156,7 +157,7 @@ public class AuthController {
     @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
     @Auditable(action = "GET_ALL_USERS", resourceType = "USER")
     public ResponseEntity<List<UserListResponse>> getAllUsers(HttpServletRequest request) {
-        List<User> users = authService.getAllUsers();
+        List<UserQueryDao.UserWithDetails> users = authService.getAllUsers();
         List<UserListResponse> userResponses = authService.convertToUserListResponse(users);
         try {
             String responseJson = objectMapper.writeValueAsString(userResponses);
@@ -179,7 +180,7 @@ public class AuthController {
     public ResponseEntity<List<UserListResponse>> getUsersByRole(
         @Parameter(description = "User role") @PathVariable UserRole role,
         HttpServletRequest request) {
-        List<User> users = authService.getUsersByRole(role);
+        List<UserQueryDao.UserWithDetails> users = authService.getUsersByRole(role);
         List<UserListResponse> userResponses = authService.convertToUserListResponse(users);
         try {
             String responseJson = objectMapper.writeValueAsString(userResponses);

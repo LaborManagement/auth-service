@@ -125,48 +125,22 @@ public class PolicyController {
     @PostMapping
     @Transactional
     public ResponseEntity<Map<String, Object>> createPolicy(@RequestBody PolicyRequest request) {
-        // Validate roles in expression if it's RBAC type
-        if ("RBAC".equalsIgnoreCase(request.getType()) || request.getType() == null) {
-            validateRolesInExpression(request.getExpression());
-        }
-
-        Policy policy = new Policy(
-                request.getName(),
-                request.getDescription(),
-                request.getType() != null ? request.getType() : "ROLE_BASED",
-                request.getExpression()
-        );
-        Long nextId = policyRepository.findTopByOrderByIdDesc()
-                .map(existing -> existing.getId() + 1)
-                .orElse(1L);
-        policy.setId(nextId);
-        policy.setIsActive(request.getIsActive());
-        Policy saved = policyRepository.save(policy);
-
-        return ResponseEntity.ok(convertToResponse(saved));
+    Policy policy = new Policy(
+        request.getName(),
+        request.getDescription(),
+        request.getType() != null ? request.getType() : "ROLE_BASED"
+    );
+    Long nextId = policyRepository.findTopByOrderByIdDesc()
+        .map(existing -> existing.getId() + 1)
+        .orElse(1L);
+    policy.setId(nextId);
+    policy.setIsActive(request.getIsActive());
+    Policy saved = policyRepository.save(policy);
+    return ResponseEntity.ok(convertToResponse(saved));
     }
 
     /**
-     * Validate that all roles in the policy expression exist in the database
-     */
-    private void validateRolesInExpression(String expression) {
-        if (expression == null || expression.isBlank()) {
-            return;
-        }
-        try {
-            JsonNode policyExpression = objectMapper.readTree(expression);
-            if (policyExpression.has("roles") && policyExpression.get("roles").isArray()) {
-                for (JsonNode roleNode : policyExpression.get("roles")) {
-                    String roleName = roleNode.asText();
-                    if (!roleRepository.existsByName(roleName)) {
-                        throw new IllegalArgumentException("Role '" + roleName + "' does not exist");
-                    }
-                }
-            }
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid policy expression or role not found: " + e.getMessage());
-        }
-    }
+    // ...expression validation removed...
 
     /**
      * Update policy
@@ -184,14 +158,8 @@ public class PolicyController {
                     if (request.getType() != null) {
                         policy.setType(request.getType());
                     }
-                    // Validate roles in expression if it's RBAC type
-                    if ("RBAC".equalsIgnoreCase(request.getType()) || request.getType() == null) {
-                        validateRolesInExpression(request.getExpression());
-                    }
-                    policy.setExpression(request.getExpression());
                     policy.setIsActive(request.getIsActive());
                     policyRepository.save(policy);
-                    
                     return ResponseEntity.ok(convertToResponse(policy));
                 })
                 .orElse(ResponseEntity.notFound().build());
