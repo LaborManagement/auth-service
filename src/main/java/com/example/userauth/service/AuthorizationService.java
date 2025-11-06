@@ -835,4 +835,28 @@ public class AuthorizationService {
         response.put("users", userMatrices);
         return response;
     }
+
+    /**
+     * Build the UI access matrix hierarchy (page → action → endpoint) for all active pages.
+     *
+     * @return Map containing UI structures and summary metadata for all pages
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getUiAccessMatrixHierarchy() {
+        List<UIPage> activePages = uiPageRepository.findByIsActiveTrue();
+        List<Map<String, Object>> pageMatrices = new ArrayList<>();
+        for (UIPage page : activePages) {
+            try {
+                Map<String, Object> matrix = getUiAccessMatrixForPage(page.getId());
+                pageMatrices.add(matrix);
+            } catch (Exception ex) {
+                // Optionally log or skip pages that fail
+            }
+        }
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("generated_at", Instant.now().toString());
+        response.put("version", System.currentTimeMillis());
+        response.put("pages", pageMatrices);
+        return response;
+    }
 }
