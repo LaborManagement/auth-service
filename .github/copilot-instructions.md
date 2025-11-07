@@ -38,11 +38,11 @@ com.example.userauth/
 
 ### Quick Reference
 
-| Pattern | Use For | Example |
-|---------|---------|---------|
-| **JPA Repository** | CRUD operations, writes, simple reads | `UserRepository`, `RoleRepository` |
-| **jOOQ DSL** | Complex queries, multi-joins, dynamic filters | `UserQueryDao`, `RoleQueryDao` |
-| **jOOQ + SQL** | Analyst-maintained reports, complex CTEs | Load from `sql/` templates |
+| Pattern            | Use For                                       | Example                            |
+| ------------------ | --------------------------------------------- | ---------------------------------- |
+| **JPA Repository** | CRUD operations, writes, simple reads         | `UserRepository`, `RoleRepository` |
+| **jOOQ DSL**       | Complex queries, multi-joins, dynamic filters | `UserQueryDao`, `RoleQueryDao`     |
+| **jOOQ + SQL**     | Analyst-maintained reports, complex CTEs      | Load from `sql/` templates         |
 
 ### Rules for ALL Patterns
 
@@ -259,12 +259,14 @@ mvn clean generate-sources
 ## Essential Reading 🎯
 
 **Start Here:**
+
 - `documentation/LBE/README.md` – Guided journey through auth system
 - `documentation/LBE/architecture/overview.md` – System topology and flows
 - `documentation/LBE/architecture/data-map.md` – Table relationships
 - `documentation/LBE/architecture/audit-design.md` – Audit system ⭐
 
 **Foundations:**
+
 - `documentation/LBE/foundations/access-control-101.md` – RBAC fundamentals
 - `documentation/LBE/foundations/data-guardrails-101.md` – RLS primer
 - `documentation/LBE/foundations/postgres-for-auth.md` – PostgreSQL features
@@ -272,9 +274,11 @@ mvn clean generate-sources
 ## Implementation Guides 💻
 
 **Data Access (CRITICAL):**
+
 - `documentation/LBE/guides/data-access-patterns.md` ⭐ – **Read before ANY database code**
 
 **Workflows:**
+
 - `documentation/LBE/guides/login-to-data.md` – Login → JWT → RLS flow
 - `documentation/LBE/guides/setup/rbac.md` – RBAC setup
 - `documentation/LBE/guides/setup/vpd.md` – RLS/VPD setup
@@ -297,6 +301,7 @@ mvn clean generate-sources
 ## Maintenance Checklist ✅
 
 **Adding Endpoint:**
+
 1. Choose data pattern (`data-access-patterns.md`)
 2. Implement: DTO → DAO → Service → Controller
 3. Register: `auth.endpoints` + `auth.endpoint_policies`
@@ -304,18 +309,21 @@ mvn clean generate-sources
 5. Test: Authorization + RLS
 
 **Modifying Roles/Policies:**
+
 1. SQL migration
 2. Update: `policy-matrix.md` + `role-catalog.md`
 3. Test with personas
 4. Document in `recent-updates.md`
 
 **Schema Changes:**
+
 1. Migration script
 2. Update: `data-map.md` + `TABLE_NAMES_REFERENCE.md`
 3. Test RLS
 4. Document in `recent-updates.md`
 
 **Audit Changes:**
+
 1. Match `audit-quick-reference.md`
 2. Update `audit-design.md` (Auth section)
 3. Ensure compliance
@@ -328,17 +336,17 @@ mvn clean generate-sources
 
 ## Quick Links 🔗
 
-| Task                   | Documentation                                  |
-| ---------------------- | ---------------------------------------------- |
-| Local setup            | `guides/local-environment.md`                  |
-| Architecture           | `architecture/overview.md`                     |
-| **Data access**        | **`guides/data-access-patterns.md`** ⭐        |
-| Add endpoint           | `guides/extend-access.md`                      |
-| Create role/policy     | `guides/setup/rbac.md`                         |
-| Debug auth             | `playbooks/troubleshoot-auth.md`               |
-| RLS                    | `foundations/data-guardrails-101.md`           |
-| PostgreSQL ops         | `reference/postgres-operations.md`             |
-| Recent changes         | `reference/recent-updates.md`                  |
+| Task               | Documentation                           |
+| ------------------ | --------------------------------------- |
+| Local setup        | `guides/local-environment.md`           |
+| Architecture       | `architecture/overview.md`              |
+| **Data access**    | **`guides/data-access-patterns.md`** ⭐ |
+| Add endpoint       | `guides/extend-access.md`               |
+| Create role/policy | `guides/setup/rbac.md`                  |
+| Debug auth         | `playbooks/troubleshoot-auth.md`        |
+| RLS                | `foundations/data-guardrails-101.md`    |
+| PostgreSQL ops     | `reference/postgres-operations.md`      |
+| Recent changes     | `reference/recent-updates.md`           |
 
 ---
 
