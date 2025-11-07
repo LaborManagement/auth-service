@@ -175,17 +175,20 @@ com.example.userauth/
 ### 1. Spring Data JPA - Use for:
 
 ✅ **When to use:**
+
 - Simple CRUD operations on entities (`findByUsername`, `save`, `delete`, etc.)
 - Write-heavy flows requiring entity lifecycle events (auditing, cascade rules)
 - Operations needing entity-level auditing and changeset tracking
 - Mutations on JPA entities or areas relying on entity lifecycle callbacks
 
 📁 **Examples in this service:**
+
 - `UserRepository` - Basic user persistence
 - `RoleRepository` - Role CRUD operations
 - `PolicyRepository` - Policy management
 
 💡 **Rules:**
+
 - Keep repository interfaces focused on persistence concerns
 - Push business logic up into services
 - Use method-name queries or small JPQL snippets
@@ -195,17 +198,20 @@ com.example.userauth/
 ### 2. jOOQ DSL - Use for:
 
 ✅ **When to use:**
+
 - Read-heavy queries with multiple joins, filters, or window functions
 - Complex queries where schema drift must fail at build time
 - Analytical queries requiring advanced SQL features (CTEs, window functions)
 - Replacing custom `JdbcTemplate` code while keeping control over SQL shape
 
 📁 **Examples in this service:**
+
 - `UserQueryDao` - Complex user authorization lookups
 - `RoleQueryDao` - Role resolution with policy checking
 - Multi-table joins for authorization matrix generation
 
 💡 **Rules:**
+
 - Inject `DSLContext` (auto-configured) into DAO classes
 - Prefer generated table/field classes (`Tables.USERS`) once codegen is enabled
 - Otherwise use `DSL.table(DSL.name("users"))` temporarily
@@ -217,16 +223,19 @@ com.example.userauth/
 ### 3. jOOQ + SQL Templates - Use for:
 
 ✅ **When to use:**
+
 - Reporting queries curated by analysts or BI teams
 - Queries that change frequently or are easier to maintain as text
 - Long CTEs, custom sort logic, or documentation-shared SQL
 - Contexts where SQL needs to be reviewed/modified outside the application
 
 📁 **File location:**
+
 - Store templates in `src/main/resources/sql/<domain>/` (e.g., `sql/reports/user_activity_summary.sql`)
 - Use `.sql` extensions
 
 💡 **Rules:**
+
 - Load templates with `SqlTemplateLoader` (or create similar utility)
 - Use positional (`?`) or named parameters supported by jOOQ parser
 - Keep column aliases stable—service code maps results by alias (`status`, `count`, etc.)
@@ -236,16 +245,19 @@ com.example.userauth/
 ### Database Access Rules (ALL PATTERNS)
 
 🔒 **Security & RLS:**
+
 - **ALWAYS** set PostgreSQL session context before queries: `SELECT auth.set_user_context(:userId)`
 - **NEVER** bypass RLS policies in application code
 - Use `RLSContext` or `RLSContextFilter` to manage session variables
 - Set both `app.current_user_id` and `app.current_tenant_id`
 
 🔄 **Transactions:**
+
 - Use `@Transactional` appropriately for all write operations
 - For reads, consider read-only transactions: `@Transactional(readOnly = true)`
 
 ✅ **Testing:**
+
 - Add integration tests for all new queries
 - Test with multiple user personas and tenant contexts
 - Verify RLS isolation in tests
@@ -254,6 +266,7 @@ com.example.userauth/
 ### Migration Between Patterns
 
 **JPA → jOOQ DSL:**
+
 1. Identify the read-heavy repository method
 2. Create DAO using `DSLContext`
 3. Implement the query
@@ -262,6 +275,7 @@ com.example.userauth/
 6. Add tests to verify behavior matches
 
 **jOOQ DSL → jOOQ + SQL Template:**
+
 1. Extract SQL string into `.sql` file
 2. Load via `SqlTemplateLoader`
 3. Execute with `dsl.resultQuery`
@@ -288,6 +302,239 @@ com.example.userauth/
 - Test multi-tenancy isolation thoroughly
 - Always include `tenantId` in audit logs
 - Consult `documentation/LBE/foundations/data-guardrails-101.md` for RLS patterns
+
+## Audit Logging Guidelines ⭐ CRITICAL
+
+**ALWAYS consult `documentation/LBE/architecture/audit-design.md` for complete audit system documentation.**
+
+### Centralized Audit Schema
+
+This service writes to a **centralized audit schema** shared across all services:
+
+- **audit.audit_event** - General action logging (API calls, user actions, system events)
+- **audit.entity_audit_event** - Entity-level change tracking with hash chains
+
+### Configuration
+
+Audit configuration is in `application.yml`:
+
+```yaml
+shared-lib:
+  audit:
+    enabled: true
+    table-name: audit.audit_event
+    service-name: auth-service # DO NOT CHANGE
+    source-schema: auth # DO NOT CHANGE
+  entity-audit:
+    enabled: true
+    table-name: audit.entity_audit_event
+    service-name: auth-service # DO NOT CHANGE
+    source-schema: auth # DO NOT CHANGE
+    source-table: users # Primary table for this service
+```
+
+**CRITICAL:** Never modify `service-name` or `source-schema` values—these enable cross-service audit queries.
+
+### When to Use Each Audit Table
+
+#### Use audit.audit_event for:
+
+- ✅ API endpoint calls (login, logout, token refresh)
+- ✅ User actions (registration, password change, role assignment)
+- ✅ Authorization decisions (403/401 responses)
+- ✅ Security events (failed login attempts, suspicious activity)
+- ✅ Policy/role/capability management actions
+- ✅ System events (cache invalidation, batch operations)
+
+#### Use audit.entity_audit_event for:
+
+- ✅ User entity changes (create, update, delete)
+- ✅ Role assignment changes
+- ✅ Policy binding changes
+- ✅ Tenant ACL modifications
+- ✅ Any sensitive data modification requiring tamper detection
+
+### Manual Audit Logging
+
+```java
+@Autowired
+private AuditTrailService auditTrailService;
+
+public void updateUserRole(Long userId, String newRole) {
+    // Business logic
+    User user = userRepository.findById(userId).orElseThrow();
+    String oldRole = user.getRole();
+    user.setRole(newRole);
+    userRepository.save(user);
+
+    // Log audit event
+    auditTrailService.logAction(
+        userId,                                    // user_id
+        "USER_ROLE_UPDATE",                        // action
+        "USER",                                    // entity_type
+        String.valueOf(userId),                    // entity_id
+        user.getUsername(),                        // entity_name
+        String.format("Changed role from %s to %s", oldRole, newRole), // description
+        Map.of(                                    // metadata
+            "old_role", oldRole,
+            "new_role", newRole,
+            "ip_address", requestMetadata.getIp()
+        )
+    );
+}
+```
+
+### Automatic Entity Audit
+
+Enable automatic audit for JPA entities:
+
+```java
+@Entity
+@Table(name = "users", schema = "auth")
+@EntityListeners(SharedEntityAuditListener.class)  // Enable automatic auditing
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String username;
+    private String email;
+
+    // All changes to this entity are automatically audited with:
+    // - before/after values
+    // - cryptographic hash chain for tamper detection
+    // - operation type (INSERT, UPDATE, DELETE)
+}
+```
+
+### Audit Best Practices for Auth Service
+
+#### DO:
+
+✅ Log all authentication events (login, logout, token refresh)  
+✅ Log authorization failures (403 responses) with policy/capability context  
+✅ Include trace_id in all audit events for request correlation  
+✅ Log role/policy/capability changes with before/after values  
+✅ Use entity audit for User table changes (automatically tracked)  
+✅ Log password reset requests and completions  
+✅ Include user_id whenever available  
+✅ Tag events with meaningful action names (USER_LOGIN, ROLE_ASSIGNED, etc.)
+
+#### DON'T:
+
+❌ Log passwords, tokens, or API keys in audit metadata  
+❌ Skip audit logging for failed operations—log failures too  
+❌ Modify audit tables directly—they're append-only  
+❌ Delete audit records (archive instead)  
+❌ Use generic action names like "UPDATE" (be specific: "USER_ROLE_UPDATE")
+
+### Common Audit Patterns
+
+#### Login Event
+
+```java
+auditTrailService.logAction(
+    user.getId(),
+    "USER_LOGIN",
+    "USER",
+    String.valueOf(user.getId()),
+    user.getUsername(),
+    "User logged in successfully",
+    Map.of(
+        "ip_address", ipAddress,
+        "user_agent", userAgent,
+        "trace_id", traceId
+    )
+);
+```
+
+#### Failed Authorization
+
+```java
+auditTrailService.logAction(
+    userId,
+    "AUTHORIZATION_DENIED",
+    "ENDPOINT",
+    endpoint,
+    endpoint,
+    String.format("User lacks required policy: %s", requiredPolicy),
+    Map.of(
+        "required_policy", requiredPolicy,
+        "user_policies", userPolicies,
+        "http_method", httpMethod,
+        "status_code", 403
+    )
+);
+```
+
+#### Role Assignment
+
+```java
+auditTrailService.logAction(
+    currentUserId,
+    "ROLE_ASSIGNED",
+    "USER",
+    String.valueOf(targetUserId),
+    targetUser.getUsername(),
+    String.format("Assigned role %s to user", roleName),
+    Map.of(
+        "role_name", roleName,
+        "assigned_by", currentUser.getUsername()
+    )
+);
+```
+
+### Querying Audit Logs
+
+```java
+// Use AuditEventRepository for programmatic queries
+@Autowired
+private AuditEventRepository auditEventRepository;
+
+// Find all actions by a user
+List<AuditEvent> userActivity = auditEventRepository
+    .findByUserIdOrderByOccurredAtDesc(userId);
+
+// Find all auth-service events today
+List<AuditEvent> todayEvents = auditEventRepository
+    .findByServiceNameAndOccurredAtAfter(
+        "auth-service",
+        LocalDateTime.now().minusDays(1)
+    );
+```
+
+### Troubleshooting Audit Issues
+
+| Issue                      | Check                                                                               |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| Audit events not appearing | Verify `shared-lib.audit.enabled=true` in config                                    |
+| Entity audit not working   | Ensure `@EntityListeners(SharedEntityAuditListener.class)` on entity                |
+| Permission denied errors   | Check database grants: `GRANT INSERT, SELECT ON audit.audit_event TO auth_app_role` |
+| Hash chain broken          | Check logs for concurrent modifications; contact security team                      |
+
+### Testing Audit Logging
+
+```java
+@Test
+public void testUserLoginAudit() {
+    // Perform action
+    authService.login(loginRequest);
+
+    // Verify audit event created
+    List<AuditEvent> events = auditEventRepository
+        .findByActionAndEntityId("USER_LOGIN", userId.toString());
+
+    assertThat(events).hasSize(1);
+    assertThat(events.get(0).getServiceName()).isEqualTo("auth-service");
+    assertThat(events.get(0).getSourceSchema()).isEqualTo("auth");
+}
+```
+
+### References
+
+- **Full Documentation:** `documentation/LBE/architecture/audit-design.md`
+- **Quick Reference:** `documentation/LBE/reference/audit-quick-reference.md`
+- **Configuration:** Review shared-lib audit properties in `application.yml`
 
 ## Building and Testing
 
@@ -327,16 +574,19 @@ mvn clean generate-sources
 ### Adding a New API Endpoint (e.g., GET /api/employees)
 
 **Step 1: Consult Documentation**
+
 - Read `documentation/LBE/guides/extend-access.md`
 - Check `documentation/LBE/reference/policy-matrix.md` for required policies
 - Review `documentation/LBE/architecture/permission-patterns.md` for patterns
 
 **Step 2: Determine Data Access Pattern**
+
 1. Is this a simple lookup? → Use JPA Repository
 2. Multi-join with complex filters? → Use jOOQ DSL
 3. Analyst-maintained report? → Use jOOQ + SQL Template
 
 **Step 3: Implement**
+
 1. Create DTO classes in `dto/` package
 2. Create appropriate DAO/Repository
 3. Implement service layer business logic
@@ -345,11 +595,13 @@ mvn clean generate-sources
 6. Ensure RLS context is set
 
 **Step 4: Register in Auth Catalog**
+
 1. Create migration script to register endpoint in `auth.endpoints`
 2. Link to policies via `auth.endpoint_policies`
 3. Update `documentation/LBE/reference/raw/RBAC/MAPPINGS/PHASE5_ENDPOINT_POLICY_MAPPINGS.md`
 
 **Step 5: Test & Document**
+
 1. Write unit tests for business logic
 2. Write integration tests for database queries
 3. Test with different roles and tenant contexts
@@ -415,7 +667,9 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 ## Essential Reading (Start Here) 🎯
 
 ### Getting Started Journey
+
 1. **`documentation/LBE/README.md`** – Step-by-step Auth journey with numbered guides
+
    - Architecture → Data Map → Login Journey → RBAC/VPD Setup → References
    - Follow the "Next" links when onboarding new contributors
 
@@ -426,6 +680,7 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 ### Architecture & Design (Read Before Coding) 🏗️
 
 #### Core Architecture Documents
+
 - **`documentation/LBE/architecture/overview.md`** – System topology, authentication flow, authorization components
 - **`documentation/LBE/architecture/data-map.md`** – Table relationships (users → roles → policies → capabilities → endpoints → tenant ACL)
 - **`documentation/LBE/architecture/request-lifecycle.md`** – How requests flow through the system (with sequence diagrams)
@@ -434,6 +689,7 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 - **`documentation/LBE/architecture/audit-design.md`** – Centralized audit logging and compliance tracking
 
 #### Foundations & Concepts
+
 - **`documentation/LBE/foundations/access-control-101.md`** – RBAC fundamentals and concepts
 - **`documentation/LBE/foundations/data-guardrails-101.md`** – Row-Level Security (RLS) primer
 - **`documentation/LBE/foundations/postgres-for-auth.md`** – PostgreSQL features (JSONB, RLS, contexts) used by this service
@@ -441,12 +697,14 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 ## Implementation Guides (Use While Coding) 💻
 
 ### Data Access Patterns ⭐ CRITICAL ⭐
+
 - **`documentation/LBE/guides/data-access-patterns.md`** – **Read this before writing ANY database code**
   - When to use Spring Data JPA vs jOOQ DSL vs jOOQ + SQL templates
   - Decision flowchart and migration guidance
   - Examples from auth-service, payment-flow-service, reconciliation-service
 
 ### Step-by-Step Workflows
+
 - **`documentation/LBE/guides/login-to-data.md`** – Worker/employer/board personas: login → JWT → authorization → RLS
 - **`documentation/LBE/guides/setup/rbac.md`** – RBAC Setup Playbook: Create roles, policies, capabilities, endpoints
 - **`documentation/LBE/guides/setup/vpd.md`** – VPD Setup Playbook: Configure RLS, load tenant ACL, test users
@@ -459,6 +717,7 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 ## Quick Reference (Use During Development) 📖
 
 ### Reference Sheets
+
 - **`documentation/LBE/reference/role-catalog.md`** – All roles and their descriptions
 - **`documentation/LBE/reference/capability-catalog.md`** – Complete capability list
 - **`documentation/LBE/reference/policy-matrix.md`** – Policy → Capability → Role mappings
@@ -469,6 +728,7 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 - **`documentation/LBE/reference/recent-updates.md`** – Latest changes (check before each sprint!)
 
 ### Raw/Detailed References
+
 - **`documentation/LBE/reference/raw/README.md`** – Index to exhaustive documentation
 - **`documentation/LBE/reference/raw/RBAC/MAPPINGS/PHASE5_ENDPOINT_POLICY_MAPPINGS.md`** – Authoritative endpoint → policy → capability mappings
 - **`documentation/LBE/reference/raw/RBAC/MAPPINGS/PHASE1_ENDPOINTS_EXTRACTION.md`** – Endpoint categorization
@@ -480,6 +740,7 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 ## Troubleshooting & Operations 🔧
 
 ### Problem Resolution
+
 - **`documentation/LBE/playbooks/troubleshoot-auth.md`** – Issue-led decision tree for RBAC/RLS problems
   - JWT validation issues
   - Authorization failures
@@ -487,12 +748,14 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
   - Common error scenarios
 
 ### Operational Playbooks
+
 - **`documentation/LBE/reference/postgres-operations.md`** – Routine tasks, migration workflow, performance checks
 - **`documentation/LBE/foundations/postgres-for-auth.md`** – Database role management and operational tasks
 
 ## Maintenance Checklist ✅
 
 ### When Adding New Endpoints/APIs
+
 1. ✅ Define endpoint in controller with OpenAPI annotations
 2. ✅ Choose data access pattern from `documentation/LBE/guides/data-access-patterns.md`
 3. ✅ Implement with appropriate pattern (JPA/jOOQ DSL/jOOQ+SQL)
@@ -506,6 +769,7 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 11. ✅ Document in `documentation/LBE/reference/recent-updates.md`
 
 ### When Modifying Policies/Roles
+
 1. ✅ Create SQL migration with changes
 2. ✅ Update `documentation/LBE/reference/policy-matrix.md`
 3. ✅ Update `documentation/LBE/reference/role-catalog.md`
@@ -514,6 +778,7 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 6. ✅ Update affected guides in `documentation/LBE/guides/`
 
 ### When Changing Database Schema
+
 1. ✅ Write migration script following PostgreSQL best practices
 2. ✅ Update `documentation/LBE/architecture/data-map.md`
 3. ✅ Update `documentation/LBE/reference/TABLE_NAMES_REFERENCE.md`
@@ -523,6 +788,7 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 7. ✅ Document in `documentation/LBE/reference/recent-updates.md`
 
 ### When Modifying Audit/Logging
+
 1. ✅ Confirm changes match `documentation/LBE/reference/audit-quick-reference.md`
 2. ✅ Update `documentation/LBE/architecture/audit-design.md` (Auth Service section)
 3. ✅ Ensure compliance requirements still met
@@ -531,6 +797,7 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 ## Key Principles 🎯
 
 ### Security First 🔒
+
 - ✅ Never bypass RLS policies
 - ✅ Always validate JWT tokens
 - ✅ Set PostgreSQL session context before queries
@@ -539,12 +806,14 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 - ✅ Follow `documentation/LBE/foundations/data-guardrails-101.md`
 
 ### Documentation Driven 📝
+
 - ✅ Read relevant docs BEFORE coding
 - ✅ Update docs WITH your code changes
 - ✅ Link to documentation in code comments
 - ✅ Keep documentation and code in sync
 
 ### Test Comprehensively 🧪
+
 - ✅ Test with multiple user personas
 - ✅ Test tenant isolation (RLS)
 - ✅ Test authorization (RBAC)
@@ -553,17 +822,17 @@ The source of truth for architecture, onboarding SQL, and RBAC flows lives in th
 
 ## Quick Links by Task 🔗
 
-| Task | Primary Documentation |
-|------|----------------------|
-| Setting up local environment | `documentation/LBE/guides/local-environment.md` |
-| Understanding architecture | `documentation/LBE/architecture/overview.md` |
+| Task                             | Primary Documentation                                     |
+| -------------------------------- | --------------------------------------------------------- |
+| Setting up local environment     | `documentation/LBE/guides/local-environment.md`           |
+| Understanding architecture       | `documentation/LBE/architecture/overview.md`              |
 | **Choosing data access pattern** | **`documentation/LBE/guides/data-access-patterns.md`** ⭐ |
-| Adding new endpoint | `documentation/LBE/guides/extend-access.md` |
-| Creating new role/policy | `documentation/LBE/guides/setup/rbac.md` |
-| Debugging authorization | `documentation/LBE/playbooks/troubleshoot-auth.md` |
-| Understanding RLS | `documentation/LBE/foundations/data-guardrails-101.md` |
-| PostgreSQL operations | `documentation/LBE/reference/postgres-operations.md` |
-| Checking recent changes | `documentation/LBE/reference/recent-updates.md` |
+| Adding new endpoint              | `documentation/LBE/guides/extend-access.md`               |
+| Creating new role/policy         | `documentation/LBE/guides/setup/rbac.md`                  |
+| Debugging authorization          | `documentation/LBE/playbooks/troubleshoot-auth.md`        |
+| Understanding RLS                | `documentation/LBE/foundations/data-guardrails-101.md`    |
+| PostgreSQL operations            | `documentation/LBE/reference/postgres-operations.md`      |
+| Checking recent changes          | `documentation/LBE/reference/recent-updates.md`           |
 
 ---
 
