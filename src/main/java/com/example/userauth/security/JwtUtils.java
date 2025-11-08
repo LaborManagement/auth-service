@@ -1,6 +1,21 @@
 package com.example.userauth.security;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
+import java.util.UUID;
+
+import javax.crypto.SecretKey;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+
 import com.example.userauth.entity.User;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
@@ -9,18 +24,6 @@ import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SecurityException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
-import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
-
-import javax.crypto.SecretKey;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Date;
-import java.util.UUID;
 
 @Component
 public class JwtUtils {
@@ -43,7 +46,8 @@ public class JwtUtils {
     private String jwtAudience;
 
     /**
-     * Generate a signed JWT embedding user id, permission version, and token id (jti).
+     * Generate a signed JWT embedding user id, permission version, and token id
+     * (jti).
      */
     public String generateJwtToken(Authentication authentication) {
         User userPrincipal = (User) authentication.getPrincipal();
@@ -51,48 +55,30 @@ public class JwtUtils {
         Instant expiry = now.plus(jwtExpirationSeconds, ChronoUnit.SECONDS);
 
         Integer permissionVersion = userPrincipal.getPermissionVersion() != null
-            ? userPrincipal.getPermissionVersion()
-            : 1;
+                ? userPrincipal.getPermissionVersion()
+                : 1;
 
         return Jwts.builder()
-            .issuer(jwtIssuer)
-            .subject(userPrincipal.getUsername())
-            .audience().add(jwtAudience).and()
-            .id(UUID.randomUUID().toString())
-            .issuedAt(Date.from(now))
-            .expiration(Date.from(expiry))
-            .claim(CLAIM_USER_ID, userPrincipal.getId())
-            .claim(CLAIM_PERMISSION_VERSION, permissionVersion)
-            .signWith(getSigningKey(), Jwts.SIG.HS256)
-            .compact();
-    }
-
-    /**
-     * @deprecated Use {@link #generateJwtToken(Authentication)} to include user id and permission version claims.
-     */
-    @Deprecated(forRemoval = false, since = "0.0.2")
-    public String generateTokenFromUsername(String username) {
-        logger.warn("generateTokenFromUsername(String) produces a token without user context and should be avoided.");
-        Instant now = Instant.now();
-        return Jwts.builder()
-            .issuer(jwtIssuer)
-            .subject(username)
-            .audience().add(jwtAudience).and()
-            .id(UUID.randomUUID().toString())
-            .issuedAt(Date.from(now))
-            .expiration(Date.from(now.plus(jwtExpirationSeconds, ChronoUnit.SECONDS)))
-            .signWith(getSigningKey(), Jwts.SIG.HS256)
-            .compact();
+                .issuer(jwtIssuer)
+                .subject(userPrincipal.getUsername())
+                .audience().add(jwtAudience).and()
+                .id(UUID.randomUUID().toString())
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiry))
+                .claim(CLAIM_USER_ID, userPrincipal.getId())
+                .claim(CLAIM_PERMISSION_VERSION, permissionVersion)
+                .signWith(getSigningKey(), Jwts.SIG.HS256)
+                .compact();
     }
 
     public Claims parseClaims(String token) {
         return Jwts.parser()
-            .verifyWith(getSigningKey())
-            .requireIssuer(jwtIssuer)
-            .requireAudience(jwtAudience)
-            .build()
-            .parseSignedClaims(token)
-            .getPayload();
+                .verifyWith(getSigningKey())
+                .requireIssuer(jwtIssuer)
+                .requireAudience(jwtAudience)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     public String getUserNameFromJwtToken(String token) {
@@ -172,7 +158,7 @@ public class JwtUtils {
 
         if (!tokenPv.equals(currentPermissionVersion)) {
             logger.info("Permission version mismatch. Token: {}, Current: {}. User permissions have been updated.",
-                tokenPv, currentPermissionVersion);
+                    tokenPv, currentPermissionVersion);
             return false;
         }
 
@@ -202,7 +188,7 @@ public class JwtUtils {
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
             data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
-                + Character.digit(hex.charAt(i + 1), 16));
+                    + Character.digit(hex.charAt(i + 1), 16));
         }
         return data;
     }
