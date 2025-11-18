@@ -1,17 +1,31 @@
+
 package com.example.userauth.dto.internal;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Response for token introspection.")
 public class TokenIntrospectionResponse {
 
+    @Schema(description = "Whether the token is active/valid", example = "true")
     private boolean active;
+
+    @Schema(description = "Subject (typically user or service identifier)", example = "user@example.com")
     private String subject;
+
+    @Schema(description = "User ID associated with the token", example = "12345")
     private Long userId;
+
+    @Schema(description = "Permission version for the user", example = "2")
     private Integer permissionVersion;
+
+    @Schema(description = "Token ID (jti claim)", example = "abc123def456")
     private String tokenId;
+
+    @Schema(description = "Token expiration timestamp (epoch seconds)", example = "1700000000")
     private Instant expiresAt;
 
     public static TokenIntrospectionResponse inactive() {

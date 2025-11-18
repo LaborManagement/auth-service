@@ -1,25 +1,35 @@
 package com.example.userauth.controller;
 
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.example.userauth.dao.RoleQueryDao.RoleWithPermissionCount;
 import com.example.userauth.entity.Role;
 import com.example.userauth.entity.User;
 import com.example.userauth.service.RoleService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shared.common.annotation.Auditable;
+import com.shared.common.util.ETagUtil;
+
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpHeaders;
 import jakarta.servlet.http.HttpServletRequest;
-import com.shared.common.util.ETagUtil;
-import org.springframework.web.bind.annotation.*;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.List;
-
-import com.shared.common.annotation.Auditable;
 
 /**
  * Admin controller for managing roles
@@ -37,10 +47,14 @@ public class RoleController {
 
     @Autowired
     private ObjectMapper objectMapper;
-    
+
     @Auditable(action = "GET_ALL_ROLES", resourceType = "ROLE")
     @GetMapping
     @Operation(summary = "Get all roles")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Roles retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     public ResponseEntity<List<Role>> getAllRoles(HttpServletRequest request) {
         List<Role> roles = roleService.getAllRoles();
         try {
@@ -56,9 +70,13 @@ public class RoleController {
             return ResponseEntity.internalServerError().build();
         }
     }
-    
+
     @GetMapping("/with-permissions")
     @Operation(summary = "Get all roles with permissions")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Roles with permissions retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     public ResponseEntity<List<RoleWithPermissionCount>> getAllRolesWithPermissions(HttpServletRequest request) {
         List<RoleWithPermissionCount> roles = roleService.getAllRolesWithPermissionCounts();
         try {
@@ -74,9 +92,14 @@ public class RoleController {
             return ResponseEntity.internalServerError().build();
         }
     }
-    
+
     @GetMapping("/{id}")
     @Operation(summary = "Get role by ID")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Role found and returned"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Role not found"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     @SuppressWarnings("unchecked")
     public ResponseEntity<Role> getRoleById(@PathVariable Long id, HttpServletRequest request) {
         return roleService.getRoleById(id)
@@ -86,7 +109,8 @@ public class RoleController {
                         String eTag = ETagUtil.generateETag(responseJson);
                         String ifNoneMatch = request.getHeader(HttpHeaders.IF_NONE_MATCH);
                         if (eTag.equals(ifNoneMatch)) {
-                            return (ResponseEntity<Role>) (ResponseEntity<?>) ResponseEntity.status(304).eTag(eTag).build();
+                            return (ResponseEntity<Role>) (ResponseEntity<?>) ResponseEntity.status(304).eTag(eTag)
+                                    .build();
                         }
                         return (ResponseEntity<Role>) (ResponseEntity<?>) ResponseEntity.ok().eTag(eTag).body(role);
                     } catch (Exception e) {
@@ -96,19 +120,26 @@ public class RoleController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
-    
+
     @GetMapping("/by-name/{name}")
     @Operation(summary = "Get role by name with permissions")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Role found and returned"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Role not found"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     @SuppressWarnings("unchecked")
     public ResponseEntity<Role> getRoleByName(@PathVariable String name, HttpServletRequest request) {
         return roleService.getRoleByNameWithPermissions(name)
                 .map(role -> {
                     try {
-                        String responseJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(role);
+                        String responseJson = new com.fasterxml.jackson.databind.ObjectMapper()
+                                .writeValueAsString(role);
                         String eTag = ETagUtil.generateETag(responseJson);
                         String ifNoneMatch = request.getHeader(HttpHeaders.IF_NONE_MATCH);
                         if (eTag.equals(ifNoneMatch)) {
-                            return (ResponseEntity<Role>) (ResponseEntity<?>) ResponseEntity.status(304).eTag(eTag).build();
+                            return (ResponseEntity<Role>) (ResponseEntity<?>) ResponseEntity.status(304).eTag(eTag)
+                                    .build();
                         }
                         return (ResponseEntity<Role>) (ResponseEntity<?>) ResponseEntity.ok().eTag(eTag).body(role);
                     } catch (Exception e) {
@@ -117,9 +148,13 @@ public class RoleController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
-    
+
     @PostMapping
     @Operation(summary = "Create new role")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Role created successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request")
+    })
     public ResponseEntity<Role> createRole(@RequestBody CreateRoleRequest request) {
         try {
             Role role = roleService.createRole(request.getName(), request.getDescription());
@@ -128,11 +163,15 @@ public class RoleController {
             return ResponseEntity.badRequest().build();
         }
     }
-    
+
     @PutMapping("/{id}")
     @Operation(summary = "Update role")
-    public ResponseEntity<Role> updateRole(@PathVariable Long id, 
-                                           @RequestBody UpdateRoleRequest request) {
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Role updated successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request")
+    })
+    public ResponseEntity<Role> updateRole(@PathVariable Long id,
+            @RequestBody UpdateRoleRequest request) {
         try {
             Role role = roleService.updateRole(id, request.getName(), request.getDescription());
             return ResponseEntity.ok(role);
@@ -140,9 +179,14 @@ public class RoleController {
             return ResponseEntity.badRequest().build();
         }
     }
-    
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete role")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "Role deleted successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Role not found"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Cannot delete role")
+    })
     public ResponseEntity<Void> deleteRole(@PathVariable Long id) {
         try {
             roleService.deleteRole(id);
@@ -153,32 +197,37 @@ public class RoleController {
             return ResponseEntity.badRequest().build();
         }
     }
-    
+
     /**
      * DEPRECATED: Legacy permission endpoints kept for reference only.
      * The active authorization flow relies on Role → Policy → Endpoint mappings.
      */
-    
+
     // @PostMapping("/{roleId}/permissions/{permissionId}")
     // @Operation(summary = "Add permission to role")
-    // public ResponseEntity<Role> addPermissionToRole(@PathVariable Long roleId, 
-    //                                                  @PathVariable Long permissionId) {
-    //     // OLD SYSTEM - superseded by policy assignments
-    //     return ResponseEntity.status(HttpStatus.GONE)
-    //             .body(null); // 410 Gone
+    // public ResponseEntity<Role> addPermissionToRole(@PathVariable Long roleId,
+    // @PathVariable Long permissionId) {
+    // // OLD SYSTEM - superseded by policy assignments
+    // return ResponseEntity.status(HttpStatus.GONE)
+    // .body(null); // 410 Gone
     // }
-    
+
     // @DeleteMapping("/{roleId}/permissions/{permissionId}")
     // @Operation(summary = "Remove permission from role")
-    // public ResponseEntity<Role> removePermissionFromRole(@PathVariable Long roleId, 
-    //                                                       @PathVariable Long permissionId) {
-    //     // OLD SYSTEM - superseded by policy assignments
-    //     return ResponseEntity.status(HttpStatus.GONE)
-    //             .body(null); // 410 Gone
+    // public ResponseEntity<Role> removePermissionFromRole(@PathVariable Long
+    // roleId,
+    // @PathVariable Long permissionId) {
+    // // OLD SYSTEM - superseded by policy assignments
+    // return ResponseEntity.status(HttpStatus.GONE)
+    // .body(null); // 410 Gone
     // }
-    
+
     @PostMapping("/assign")
     @Operation(summary = "Assign role to user")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Role assigned to user successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request")
+    })
     public ResponseEntity<User> assignRoleToUser(@RequestBody AssignRoleRequest request) {
         try {
             User user = roleService.assignRoleToUser(request.getUserId(), request.getRoleId());
@@ -187,9 +236,13 @@ public class RoleController {
             return ResponseEntity.badRequest().build();
         }
     }
-    
+
     @PostMapping("/revoke")
     @Operation(summary = "Revoke role from user")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Role revoked from user successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request")
+    })
     public ResponseEntity<User> revokeRoleFromUser(@RequestBody RevokeRoleRequest request) {
         try {
             User user = roleService.revokeRoleFromUser(request.getUserId(), request.getRoleId());
@@ -198,45 +251,89 @@ public class RoleController {
             return ResponseEntity.badRequest().build();
         }
     }
-    
+
     // Request DTOs
     public static class CreateRoleRequest {
         private String name;
         private String description;
-        
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
     }
-    
+
     public static class UpdateRoleRequest {
         private String name;
         private String description;
-        
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
     }
-    
+
     public static class AssignRoleRequest {
         private Long userId;
         private Long roleId;
-        
-        public Long getUserId() { return userId; }
-        public void setUserId(Long userId) { this.userId = userId; }
-        public Long getRoleId() { return roleId; }
-        public void setRoleId(Long roleId) { this.roleId = roleId; }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
+
+        public Long getRoleId() {
+            return roleId;
+        }
+
+        public void setRoleId(Long roleId) {
+            this.roleId = roleId;
+        }
     }
-    
+
     public static class RevokeRoleRequest {
         private Long userId;
         private Long roleId;
-        
-        public Long getUserId() { return userId; }
-        public void setUserId(Long userId) { this.userId = userId; }
-        public Long getRoleId() { return roleId; }
-        public void setRoleId(Long roleId) { this.roleId = roleId; }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
+
+        public Long getRoleId() {
+            return roleId;
+        }
+
+        public void setRoleId(Long roleId) {
+            this.roleId = roleId;
+        }
     }
 }
