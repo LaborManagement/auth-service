@@ -80,15 +80,7 @@ public class AuthorizationService {
                 
                 // Only add if not already present (deduplicate by endpoint ID)
                 if (!uniqueEndpoints.containsKey(endpointId)) {
-                    Map<String, Object> endpointData = new HashMap<>();
-                    endpointData.put("id", endpointId);
-                    endpointData.put("method", action.getEndpoint().getMethod());
-                    endpointData.put("path", action.getEndpoint().getPath());
-                    endpointData.put("service", action.getEndpoint().getService());
-                    endpointData.put("version", action.getEndpoint().getVersion());
-                    endpointData.put("description", action.getEndpoint().getDescription());
-                    endpointData.put("ui_type", action.getEndpoint().getUiType());
-                    uniqueEndpoints.put(endpointId, endpointData);
+                    uniqueEndpoints.put(endpointId, buildEndpointSummary(action.getEndpoint()));
                 }
             }
         }
@@ -430,6 +422,22 @@ public class AuthorizationService {
         return endpointMap;
     }
 
+    private Map<String, Object> buildEndpointSummary(Endpoint endpoint) {
+        if (endpoint == null) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("id", endpoint.getId());
+        summary.put("service", endpoint.getService());
+        summary.put("version", endpoint.getVersion());
+        summary.put("method", endpoint.getMethod());
+        summary.put("path", endpoint.getPath());
+        summary.put("ui_type", endpoint.getUiType());
+        summary.put("description", endpoint.getDescription());
+        return summary;
+    }
+
     /**
      * Build the UI access matrix (page → action → endpoint) for administrative review.
      *
@@ -706,12 +714,16 @@ public class AuthorizationService {
             List<Map<String, Object>> userActions = actions.stream()
                 .filter(action -> action.getEndpoint() != null && accessibleEndpointIds.contains(action.getEndpoint().getId()))
                 .map(action -> {
-                    Map<String, Object> actionData = new HashMap<>();
+                    Map<String, Object> actionData = new LinkedHashMap<>();
+                    actionData.put("id", action.getId());
                     actionData.put("name", action.getAction());
+                    actionData.put("action", action.getAction());
                     actionData.put("label", action.getLabel());
                     actionData.put("icon", action.getIcon());
                     actionData.put("variant", action.getVariant());
-                    actionData.put("endpointId", action.getEndpoint().getId());
+                    actionData.put("displayOrder", action.getDisplayOrder());
+                    actionData.put("isActive", action.getIsActive());
+                    actionData.put("endpoint", buildEndpointSummary(action.getEndpoint()));
                     return actionData;
                 })
                 .collect(Collectors.toList());
