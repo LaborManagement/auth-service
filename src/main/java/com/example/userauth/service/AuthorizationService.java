@@ -716,13 +716,9 @@ public class AuthorizationService {
                 .map(action -> {
                     Map<String, Object> actionData = new LinkedHashMap<>();
                     actionData.put("id", action.getId());
-                    actionData.put("name", action.getAction());
                     actionData.put("action", action.getAction());
                     actionData.put("label", action.getLabel());
-                    actionData.put("icon", action.getIcon());
-                    actionData.put("variant", action.getVariant());
                     actionData.put("displayOrder", action.getDisplayOrder());
-                    actionData.put("isActive", action.getIsActive());
                     actionData.put("endpoint", buildEndpointSummary(action.getEndpoint()));
                     return actionData;
                 })
