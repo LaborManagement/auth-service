@@ -1,15 +1,5 @@
 package com.example.userauth.dao;
 
-import com.example.userauth.entity.User;
-import com.example.userauth.entity.UserRole;
-import org.jooq.Condition;
-import org.jooq.DSLContext;
-import org.jooq.Field;
-import org.jooq.Record;
-import org.jooq.Table;
-import org.jooq.impl.DSL;
-import org.springframework.stereotype.Repository;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -20,8 +10,20 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import org.jooq.Condition;
+import org.jooq.DSLContext;
+import org.jooq.Field;
+import org.jooq.Record;
+import org.jooq.Table;
+import org.jooq.impl.DSL;
+import org.springframework.stereotype.Repository;
+
+import com.example.userauth.entity.User;
+import com.example.userauth.entity.UserRole;
+
 /**
- * Read-optimised access to the {@code users} table leveraging jOOQ for type-safe SQL construction.
+ * Read-optimised access to the {@code users} table leveraging jOOQ for
+ * type-safe SQL construction.
  */
 @Repository
 public class UserQueryDao {
@@ -38,10 +40,14 @@ public class UserQueryDao {
     private static final Field<String> U_EMAIL = DSL.field(DSL.name("u", "email"), String.class);
     private static final Field<String> U_FULL_NAME = DSL.field(DSL.name("u", "full_name"), String.class);
     private static final Field<String> U_ROLE = DSL.field(DSL.name("u", "role"), String.class);
+    private static final Field<String> U_USER_TYPE = DSL.field(DSL.name("u", "user_type"), String.class);
     private static final Field<Boolean> U_IS_ENABLED = DSL.field(DSL.name("u", "is_enabled"), Boolean.class);
-    private static final Field<LocalDateTime> U_CREATED_AT = DSL.field(DSL.name("u", "created_at"), LocalDateTime.class);
-    private static final Field<LocalDateTime> U_UPDATED_AT = DSL.field(DSL.name("u", "updated_at"), LocalDateTime.class);
-    private static final Field<LocalDateTime> U_LAST_LOGIN = DSL.field(DSL.name("u", "last_login"), LocalDateTime.class);
+    private static final Field<LocalDateTime> U_CREATED_AT = DSL.field(DSL.name("u", "created_at"),
+            LocalDateTime.class);
+    private static final Field<LocalDateTime> U_UPDATED_AT = DSL.field(DSL.name("u", "updated_at"),
+            LocalDateTime.class);
+    private static final Field<LocalDateTime> U_LAST_LOGIN = DSL.field(DSL.name("u", "last_login"),
+            LocalDateTime.class);
 
     private static final Field<Long> UR_USER_ID = DSL.field(DSL.name("ur", "user_id"), Long.class);
     private static final Field<Long> UR_ROLE_ID = DSL.field(DSL.name("ur", "role_id"), Long.class);
@@ -49,8 +55,10 @@ public class UserQueryDao {
     private static final Field<Long> R_ID = DSL.field(DSL.name("r", "id"), Long.class);
     private static final Field<String> R_NAME = DSL.field(DSL.name("r", "name"), String.class);
     private static final Field<String> R_DESCRIPTION = DSL.field(DSL.name("r", "description"), String.class);
-    private static final Field<LocalDateTime> R_CREATED_AT = DSL.field(DSL.name("r", "created_at"), LocalDateTime.class);
-    private static final Field<LocalDateTime> R_UPDATED_AT = DSL.field(DSL.name("r", "updated_at"), LocalDateTime.class);
+    private static final Field<LocalDateTime> R_CREATED_AT = DSL.field(DSL.name("r", "created_at"),
+            LocalDateTime.class);
+    private static final Field<LocalDateTime> R_UPDATED_AT = DSL.field(DSL.name("r", "updated_at"),
+            LocalDateTime.class);
 
     private static final Field<Long> RP_ROLE_ID = DSL.field(DSL.name("rp", "role_id"), Long.class);
     private static final Field<Long> RP_POLICY_ID = DSL.field(DSL.name("rp", "policy_id"), Long.class);
@@ -65,6 +73,7 @@ public class UserQueryDao {
     private static final Field<Long> UTA_USER_ID = DSL.field(DSL.name("uta", "user_id"), Long.class);
     private static final Field<String> UTA_BOARD_ID = DSL.field(DSL.name("uta", "board_id"), String.class);
     private static final Field<String> UTA_EMPLOYER_ID = DSL.field(DSL.name("uta", "employer_id"), String.class);
+    private static final Field<String> UTA_TOLI_ID = DSL.field(DSL.name("uta", "toli_id"), String.class);
 
     private static final Field<Long> MULTI_ROLE_USER_ID = DSL.field(DSL.name("multi_role", "user_id"), Long.class);
 
@@ -77,7 +86,7 @@ public class UserQueryDao {
     public List<User> findAll() {
         var u = USERS.as("u");
         return dsl.select(U_ID, U_USERNAME, U_EMAIL, U_FULL_NAME, U_ROLE, U_IS_ENABLED,
-                        U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
+                U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
                 .from(u)
                 .orderBy(U_USERNAME.asc())
                 .fetch(this::mapUser);
@@ -86,7 +95,7 @@ public class UserQueryDao {
     public Optional<User> findById(Long id) {
         var u = USERS.as("u");
         return dsl.select(U_ID, U_USERNAME, U_EMAIL, U_FULL_NAME, U_ROLE, U_IS_ENABLED,
-                        U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
+                U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
                 .from(u)
                 .where(U_ID.eq(id))
                 .fetchOptional(this::mapUser);
@@ -95,7 +104,7 @@ public class UserQueryDao {
     public Optional<User> findByUsername(String username) {
         var u = USERS.as("u");
         return dsl.select(U_ID, U_USERNAME, U_EMAIL, U_FULL_NAME, U_ROLE, U_IS_ENABLED,
-                        U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
+                U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
                 .from(u)
                 .where(U_USERNAME.eq(username))
                 .fetchOptional(this::mapUser);
@@ -104,7 +113,7 @@ public class UserQueryDao {
     public Optional<User> findByEmail(String email) {
         var u = USERS.as("u");
         return dsl.select(U_ID, U_USERNAME, U_EMAIL, U_FULL_NAME, U_ROLE, U_IS_ENABLED,
-                        U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
+                U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
                 .from(u)
                 .where(U_EMAIL.eq(email))
                 .fetchOptional(this::mapUser);
@@ -113,7 +122,7 @@ public class UserQueryDao {
     public List<User> findByRole(UserRole role) {
         var u = USERS.as("u");
         return dsl.select(U_ID, U_USERNAME, U_EMAIL, U_FULL_NAME, U_ROLE, U_IS_ENABLED,
-                        U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
+                U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
                 .from(u)
                 .where(U_ROLE.eq(role.name()))
                 .orderBy(U_USERNAME.asc())
@@ -123,7 +132,7 @@ public class UserQueryDao {
     public List<User> findActiveUsers() {
         var u = USERS.as("u");
         return dsl.select(U_ID, U_USERNAME, U_EMAIL, U_FULL_NAME, U_ROLE, U_IS_ENABLED,
-                        U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
+                U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
                 .from(u)
                 .where(U_IS_ENABLED.isTrue())
                 .orderBy(U_USERNAME.asc())
@@ -133,7 +142,7 @@ public class UserQueryDao {
     public List<User> findInactiveUsers() {
         var u = USERS.as("u");
         return dsl.select(U_ID, U_USERNAME, U_EMAIL, U_FULL_NAME, U_ROLE, U_IS_ENABLED,
-                        U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
+                U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
                 .from(u)
                 .where(U_IS_ENABLED.isFalse())
                 .orderBy(U_USERNAME.asc())
@@ -154,7 +163,7 @@ public class UserQueryDao {
         var u = USERS.as("u");
         var ur = USER_ROLES.as("ur");
         return dsl.select(U_ID, U_USERNAME, U_EMAIL, U_FULL_NAME, U_ROLE, U_IS_ENABLED,
-                        U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
+                U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
                 .from(u)
                 .join(ur).on(U_ID.eq(UR_USER_ID))
                 .where(UR_ROLE_ID.eq(roleId))
@@ -168,7 +177,7 @@ public class UserQueryDao {
         var r = ROLES.as("r");
         Condition roleMatch = DSL.lower(R_NAME).eq(roleName.toLowerCase());
         return dsl.selectDistinct(U_ID, U_USERNAME, U_EMAIL, U_FULL_NAME, U_ROLE, U_IS_ENABLED,
-                        U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
+                U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
                 .from(u)
                 .join(ur).on(U_ID.eq(UR_USER_ID))
                 .join(r).on(UR_ROLE_ID.eq(R_ID))
@@ -187,7 +196,7 @@ public class UserQueryDao {
                 .asTable("multi_role");
 
         return dsl.select(U_ID, U_USERNAME, U_EMAIL, U_FULL_NAME, U_ROLE, U_IS_ENABLED,
-                        U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
+                U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
                 .from(u)
                 .join(multiRole).on(U_ID.eq(MULTI_ROLE_USER_ID))
                 .orderBy(U_USERNAME.asc())
@@ -242,25 +251,26 @@ public class UserQueryDao {
         }
 
         var records = dsl.select(
-                        U_ID,
-                        U_USERNAME,
-                        U_EMAIL,
-                        U_FULL_NAME,
-                        U_ROLE,
-                        U_IS_ENABLED,
-                        U_CREATED_AT,
-                        U_UPDATED_AT,
-                        U_LAST_LOGIN,
-                        R_ID,
-                        R_NAME,
-                        R_DESCRIPTION,
-                        P_ID,
-                        P_NAME,
-                        P_DESCRIPTION,
-                        P_TYPE,
-                        UTA_BOARD_ID,
-                        UTA_EMPLOYER_ID
-                )
+                U_ID,
+                U_USERNAME,
+                U_EMAIL,
+                U_FULL_NAME,
+                U_ROLE,
+                U_USER_TYPE,
+                U_IS_ENABLED,
+                U_CREATED_AT,
+                U_UPDATED_AT,
+                U_LAST_LOGIN,
+                R_ID,
+                R_NAME,
+                R_DESCRIPTION,
+                P_ID,
+                P_NAME,
+                P_DESCRIPTION,
+                P_TYPE,
+                UTA_BOARD_ID,
+                UTA_EMPLOYER_ID,
+                UTA_TOLI_ID)
                 .from(u)
                 .leftJoin(ur).on(U_ID.eq(UR_USER_ID))
                 .leftJoin(r).on(UR_ROLE_ID.eq(R_ID))
@@ -286,6 +296,7 @@ public class UserQueryDao {
                 dto.setUsername(record.get(U_USERNAME));
                 dto.setEmail(record.get(U_EMAIL));
                 dto.setFullName(record.get(U_FULL_NAME));
+                dto.setUserType(record.get(U_USER_TYPE));
                 dto.setEnabled(record.get(U_IS_ENABLED));
                 dto.setCreatedAt(record.get(U_CREATED_AT));
                 dto.setUpdatedAt(record.get(U_UPDATED_AT));
@@ -316,12 +327,20 @@ public class UserQueryDao {
                 }
             }
 
+            if (user.getToliId() == null) {
+                String toliId = record.get(UTA_TOLI_ID);
+                if (toliId != null) {
+                    user.setToliId(toliId);
+                }
+            }
+
             Long roleId = record.get(R_ID);
             if (roleId == null) {
                 return;
             }
 
-            Map<Long, RoleWithPolicies> userRoles = rolesByUser.computeIfAbsent(userId, ignore -> new LinkedHashMap<>());
+            Map<Long, RoleWithPolicies> userRoles = rolesByUser.computeIfAbsent(userId,
+                    ignore -> new LinkedHashMap<>());
             RoleWithPolicies role = userRoles.computeIfAbsent(roleId, rid -> {
                 RoleWithPolicies dto = new RoleWithPolicies();
                 dto.setId(rid);
@@ -366,7 +385,7 @@ public class UserQueryDao {
         Condition fullNameMatch = DSL.lower(U_FULL_NAME).like(pattern);
 
         return dsl.select(U_ID, U_USERNAME, U_EMAIL, U_FULL_NAME, U_ROLE, U_IS_ENABLED,
-                        U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
+                U_CREATED_AT, U_UPDATED_AT, U_LAST_LOGIN)
                 .from(u)
                 .where(usernameMatch.or(emailMatch).or(fullNameMatch))
                 .orderBy(U_USERNAME.asc())
@@ -378,6 +397,7 @@ public class UserQueryDao {
         private String username;
         private String email;
         private String fullName;
+        private String userType;
         private UserRole primaryRole;
         private Boolean enabled;
         private LocalDateTime createdAt;
@@ -385,7 +405,25 @@ public class UserQueryDao {
         private LocalDateTime lastLogin;
         private String boardId;
         private String employerId;
+        private String toliId;
+
+        public String getToliId() {
+            return toliId;
+        }
+
+        public void setToliId(String toliId) {
+            this.toliId = toliId;
+        }
+
         private final Set<RoleWithPolicies> roles = new LinkedHashSet<>();
+
+        public String getUserType() {
+            return userType;
+        }
+
+        public void setUserType(String userType) {
+            this.userType = userType;
+        }
 
         public Long getId() {
             return id;
@@ -516,8 +554,10 @@ public class UserQueryDao {
 
         @Override
         public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof RoleWithPolicies)) return false;
+            if (this == o)
+                return true;
+            if (!(o instanceof RoleWithPolicies))
+                return false;
             RoleWithPolicies that = (RoleWithPolicies) o;
             return Objects.equals(id, that.id);
         }
@@ -568,8 +608,10 @@ public class UserQueryDao {
 
         @Override
         public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof PolicySummary)) return false;
+            if (this == o)
+                return true;
+            if (!(o instanceof PolicySummary))
+                return false;
             PolicySummary that = (PolicySummary) o;
             return Objects.equals(id, that.id);
         }
