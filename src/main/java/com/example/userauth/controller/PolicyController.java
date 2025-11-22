@@ -245,15 +245,9 @@ public class PolicyController {
                             Map<Long, Endpoint> endpointById = endpoints.stream()
                                     .collect(Collectors.toMap(Endpoint::getId, endpoint -> endpoint));
 
-                            long nextId = endpointPolicyRepository.findTopByOrderByIdDesc()
-                                    .map(existing -> existing.getId() + 1)
-                                    .orElse(1L);
-
                             for (Long endpointId : endpointIds) {
                                 Endpoint endpoint = endpointById.get(endpointId);
-                                EndpointPolicy endpointPolicy = new EndpointPolicy(endpoint, policy);
-                                endpointPolicy.setId(nextId++);
-                                endpointPolicyRepository.save(endpointPolicy);
+                                endpointPolicyRepository.save(new EndpointPolicy(endpoint, policy));
                             }
                         }
 

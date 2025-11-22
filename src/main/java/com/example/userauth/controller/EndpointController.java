@@ -348,10 +348,6 @@ public class EndpointController {
         Policy policy = policyRepository.findById(policyId)
                 .orElseThrow(() -> new IllegalArgumentException("Policy not found: " + policyId));
 
-        long nextId = endpointPolicyRepository.findTopByOrderByIdDesc()
-                .map(existing -> existing.getId() + 1)
-                .orElse(1L);
-
         List<Long> newlyAssigned = new ArrayList<>();
 
         for (Long endpointId : request.getEndpointIds()) {
@@ -359,9 +355,7 @@ public class EndpointController {
                     .orElseThrow(() -> new IllegalArgumentException("Endpoint not found: " + endpointId));
 
             if (!endpointPolicyRepository.existsByEndpointIdAndPolicyId(endpointId, policyId)) {
-                EndpointPolicy ep = new EndpointPolicy(endpoint, policy);
-                ep.setId(nextId++);
-                endpointPolicyRepository.save(ep);
+                endpointPolicyRepository.save(new EndpointPolicy(endpoint, policy));
                 newlyAssigned.add(endpointId);
             }
         }
@@ -399,19 +393,13 @@ public class EndpointController {
         Endpoint endpoint = endpointRepository.findById(endpointId)
                 .orElseThrow(() -> new RuntimeException("Endpoint not found"));
 
-        long nextId = endpointPolicyRepository.findTopByOrderByIdDesc()
-                .map(existing -> existing.getId() + 1)
-                .orElse(1L);
-
         for (Long policyId : policyIds) {
             Policy policy = policyRepository.findById(policyId)
                     .orElseThrow(() -> new RuntimeException("Policy not found: " + policyId));
 
             // Check if already exists
             if (!endpointPolicyRepository.existsByEndpointIdAndPolicyId(endpointId, policyId)) {
-                EndpointPolicy ep = new EndpointPolicy(endpoint, policy);
-                ep.setId(nextId++);
-                endpointPolicyRepository.save(ep);
+                endpointPolicyRepository.save(new EndpointPolicy(endpoint, policy));
             }
         }
     }
