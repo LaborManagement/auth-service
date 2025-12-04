@@ -15,13 +15,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.userauth.dto.AuthorizationMatrix;
+import com.example.userauth.dto.EndpointAuthorizationMetadata;
 import com.example.userauth.entity.Endpoint;
 import com.example.userauth.entity.EndpointPolicy;
 import com.example.userauth.repository.EndpointRepository;
 import com.example.userauth.service.AuthorizationService;
 import com.example.userauth.service.PolicyEngineService;
-import com.example.userauth.service.dto.AuthorizationMatrix;
-import com.example.userauth.service.dto.EndpointAuthorizationMetadata;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

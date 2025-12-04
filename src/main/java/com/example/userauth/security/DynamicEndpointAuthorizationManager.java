@@ -1,11 +1,7 @@
 package com.example.userauth.security;
 
-import com.example.userauth.entity.User;
-import com.example.userauth.service.AuthorizationService;
-import com.example.userauth.service.PolicyEngineService;
-import com.example.userauth.service.dto.AuthorizationMatrix;
-import com.example.userauth.service.dto.EndpointAuthorizationMetadata;
-import jakarta.servlet.http.HttpServletRequest;
+import java.util.function.Supplier;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authorization.AuthorizationDecision;
@@ -14,10 +10,17 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.stereotype.Component;
 
-import java.util.function.Supplier;
+import com.example.userauth.dto.AuthorizationMatrix;
+import com.example.userauth.dto.EndpointAuthorizationMetadata;
+import com.example.userauth.entity.User;
+import com.example.userauth.service.AuthorizationService;
+import com.example.userauth.service.PolicyEngineService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
- * AuthorizationManager that enforces RBAC policies defined in the service catalog.
+ * AuthorizationManager that enforces RBAC policies defined in the service
+ * catalog.
  * It reuses the same authorization matrix exposed via /api/me/authorizations.
  */
 @Component
@@ -29,14 +32,14 @@ public class DynamicEndpointAuthorizationManager implements AuthorizationManager
     private final PolicyEngineService policyEngineService;
 
     public DynamicEndpointAuthorizationManager(AuthorizationService authorizationService,
-                                               PolicyEngineService policyEngineService) {
+            PolicyEngineService policyEngineService) {
         this.authorizationService = authorizationService;
         this.policyEngineService = policyEngineService;
     }
 
     @Override
     public AuthorizationDecision check(Supplier<Authentication> authenticationSupplier,
-                                       RequestAuthorizationContext requestContext) {
+            RequestAuthorizationContext requestContext) {
         HttpServletRequest request = requestContext.getRequest();
         String method = request.getMethod();
         if ("OPTIONS".equalsIgnoreCase(method)) {
@@ -48,11 +51,12 @@ public class DynamicEndpointAuthorizationManager implements AuthorizationManager
             return new AuthorizationDecision(false);
         }
 
-        EndpointAuthorizationMetadata metadata =
-                authorizationService.getEndpointAuthorizationMetadata(method, resolvePath(request));
+        EndpointAuthorizationMetadata metadata = authorizationService.getEndpointAuthorizationMetadata(method,
+                resolvePath(request));
 
         if (!metadata.isEndpointFound()) {
-            // Endpoint not cataloged: fail closed so every backend route must be registered with a policy
+            // Endpoint not cataloged: fail closed so every backend route must be registered
+            // with a policy
             logger.warn("No cataloged endpoint for {} {}, denying access by default", method, request.getRequestURI());
             return new AuthorizationDecision(false);
         }

@@ -1,7 +1,5 @@
 package com.example.userauth.service;
 
-import com.example.userauth.entity.User;
-import com.example.userauth.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -9,8 +7,16 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.userauth.entity.User;
+import com.example.userauth.repository.UserRepository;
+import com.shared.utilities.logger.LoggerFactoryProvider;
+
+import org.slf4j.Logger;
+
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
+    
+    private static final Logger log = LoggerFactoryProvider.getLogger(UserDetailsServiceImpl.class);
     
     @Autowired
     private UserRepository userRepository;
@@ -18,15 +24,19 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        System.out.println("DEBUG: loadUserByUsername called with: " + username);
+        log.debug("loadUserByUsername called with: {}", username);
         User user = userRepository.findByUsernameOrEmail(username)
                 .orElseThrow(() -> {
-                    System.out.println("DEBUG: User not found: " + username);
+                    log.debug("User not found: {}", username);
                     return new UsernameNotFoundException("User Not Found: " + username);
                 });
         
-        System.out.println("DEBUG: User found: " + user.getUsername() + ", enabled: " + user.isEnabled());
-        System.out.println("DEBUG: User password starts with: " + (user.getPassword() != null ? user.getPassword().substring(0, 10) : "null"));
+        log.debug("User found: {}, enabled: {}", user.getUsername(), user.isEnabled());
+        String passwordPrefix = null;
+        if (user.getPassword() != null) {
+            passwordPrefix = user.getPassword().substring(0, Math.min(10, user.getPassword().length()));
+        }
+        log.debug("User password starts with: {}", passwordPrefix);
         return user;
     }
     
@@ -35,14 +45,14 @@ public class UserDetailsServiceImpl implements UserDetailsService {
      */
     @Transactional
     public UserDetails loadUserById(Long userId) throws UsernameNotFoundException {
-        System.out.println("DEBUG: loadUserById called with: " + userId);
+        log.debug("loadUserById called with: {}", userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> {
-                    System.out.println("DEBUG: User not found by ID: " + userId);
+                    log.debug("User not found by ID: {}", userId);
                     return new UsernameNotFoundException("User Not Found with ID: " + userId);
                 });
         
-        System.out.println("DEBUG: User found: " + user.getUsername() + ", enabled: " + user.isEnabled());
+        log.debug("User found: {}, enabled: {}", user.getUsername(), user.isEnabled());
         return user;
     }
 }
