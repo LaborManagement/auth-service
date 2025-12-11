@@ -2,10 +2,11 @@
 spring:
   datasource:
     # PostgreSQL connection for RLS/VPD
-    url: ${DB_URL:jdbc:postgresql://paymentreconciliation-postgres:5432/labormanagement?currentSchema=auth}
+    # url: ${DB_URL:jdbc:postgresql://paymentreconciliation-postgres:5432/labormanagement?currentSchema=auth}
+    url: ${DB_URL:jdbc:postgresql://lbe-dbinstance.cd0sc0k82p15.ap-south-1.rds.amazonaws.com:5432/lbe?currentSchema=auth}
     driver-class-name: org.postgresql.Driver
     username: ${DB_USERNAME:app_auth}
-    password: ${DB_PASSWORD:change-me-in-production}
+    password: ${DB_PASSWORD:root}
     hikari:
       maximum-pool-size: 20
       minimum-idle: 5
@@ -14,10 +15,10 @@ spring:
       max-lifetime: 1200000
       leak-detection-threshold: 60000
       connection-test-query: SELECT 1
-      auto-commit: true  # Important: allows transaction-local RLS context to persist
+      auto-commit: false  # Required for Spring @Transactional to work properly
   jpa:
     hibernate:
-      ddl-auto: validate  # Don't auto-create tables in prod
+      ddl-auto: none  # Don't auto-create tables in prod
     show-sql: false
     properties:
       hibernate:
@@ -53,17 +54,37 @@ shared-lib:
     service-name: auth-service
     source-schema: auth
     source-table: users
+    hashing-algorithm: SHA-256
+    initial-hash-value: 0000000000000000000000000000000000000000000000000000000000000000
   audit:
     enabled: true
     table-name: audit.audit_event
     service-name: auth-service
     source-schema: auth
+    hashing-algorithm: SHA-256
+    initial-hash-value: 0000000000000000000000000000000000000000000000000000000000000000
+  # SFTP Utility Configuration
+  sftp:
+    enabled: false
+    host: ${SFTP_HOST:localhost}
+    port: ${SFTP_PORT:22}
+    username: ${SFTP_USERNAME:user}
+    password: ${SFTP_PASSWORD:password}
+    remote-directory: ${SFTP_REMOTE_DIRECTORY:/incoming}
+    local-directory: ${SFTP_LOCAL_DIRECTORY:/tmp/sftp}
+    known-hosts-file: ${SFTP_KNOWN_HOSTS_FILE:~/.ssh/known_hosts}
+    strict-host-key-checking: ${SFTP_STRICT_HOST_KEY_CHECKING:true}
+  filters:
+    enabled: true
 
 logging:
   level:
-    "[com.example.paymentreconciliation]": INFO
-    "[org.hibernate.SQL]": WARN
-    "[org.springframework.web]": WARN
+    # "[com.example.paymentreconciliation]": INFO
+    # "[org.hibernate.SQL]": WARN
+    # "[org.springframework.web]": WARN
+    "[com.example.userauth]": DEBUG
+    "[com.shared.entityaudit]": DEBUG
+    "[org.hibernate.type.descriptor.sql.BasicBinder]": TRACE
     root: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%logger{36}] - %msg%n"
@@ -132,5 +153,5 @@ server:
 
 auth:
   internal:
-    api-key: ${INTERNAL_API_KEY:}
+    api-key: ${INTERNAL_API_KEY:4f0d3ac5a91b7fe246d3851c09a2f718f6c8d42704e3b89a1f2d6c7b81e4f0a3}
     api-key-header: X-Internal-Api-Key

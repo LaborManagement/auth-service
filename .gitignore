@@ -12,3 +12,4 @@ docs/onboarding/
 *.sql
 /migrations/
 capability_removal_context.md
+src/main/resources/application-prod.yml
