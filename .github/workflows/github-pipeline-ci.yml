@@ -113,22 +113,35 @@ jobs:
       - name: Extract metadata
         id: meta
         run: |
-          # Set image tag based on branch/environment
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            ENV_TAG="prod"
-          elif [ "${{ github.ref }}" == "refs/heads/develop" ]; then
-            ENV_TAG="dev"
-          else
-            ENV_TAG="${{ github.event.inputs.environment || 'dev' }}"
-          fi
+          # Get branch name (sanitized for Docker tags)
+          BRANCH_NAME="${{ github.ref_name }}"
+          # Replace / with - and remove any invalid characters for Docker tags
+          BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/\//-/g' | sed 's/[^a-zA-Z0-9._-]//g')
           
-          # Get short SHA
-          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          # Extract version from pom.xml
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout 2>/dev/null || echo "1.0.0")
+          # Remove -SNAPSHOT suffix if present
+          VERSION=$(echo "$VERSION" | sed 's/-SNAPSHOT//')
+          
+          # Get current date in YYYYMMDD format
+          BUILD_DATE=$(date -u +'%Y%m%d')
+          BUILD_DATE_ISO=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          
+          # Create the tag: branch-version-date
+          IMAGE_TAG="${BRANCH_NAME}-${VERSION}-${BUILD_DATE}"
           
           # Set outputs
-          echo "env_tag=${ENV_TAG}" >> $GITHUB_OUTPUT
-          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
-          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
+          echo "build_date_iso=${BUILD_DATE_ISO}" >> $GITHUB_OUTPUT
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          
+          echo "📋 Tag Details:"
+          echo "   Branch: ${BRANCH_NAME}"
+          echo "   Version: ${VERSION}"
+          echo "   Date: ${BUILD_DATE}"
+          echo "   Full Tag: ${IMAGE_TAG}"
 
       # ============================================
       # 7. Build Docker Image (Multi-stage build includes shared-lib)
