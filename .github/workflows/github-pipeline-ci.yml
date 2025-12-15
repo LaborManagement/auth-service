@@ -8,6 +8,7 @@ name: Build and Push to ECR
 on:
   push:
     branches:
+      - devops
       - devops/*
       - develop
     paths:
@@ -79,9 +80,11 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: arn:aws:ecr:ap-south-1:695546167399:repository/lms/auth-service
           role-session-name: GitHubActions-AuthService
-          aws-region: ${{ env.AWS_REGION }}
+          # aws-region: ${{ env.AWS_REGION }}
+          aws-region: ap-south-1
 
       # ============================================
       # 5. Login to Amazon ECR
