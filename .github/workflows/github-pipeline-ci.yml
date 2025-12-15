@@ -71,9 +71,10 @@ jobs:
       - name: Checkout shared-lib
         uses: actions/checkout@v4
         with:
-          repository: https://github.com/LaborManagement/shared-lib
+          repository: LaborManagement/shared-lib
           path: shared-lib
           token: ${{ secrets.PAT_TOKEN }}
+          ref: rahulc_branch
 
       # ============================================
       # 4. Build and install shared-lib
