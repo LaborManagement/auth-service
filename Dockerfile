@@ -85,3 +85,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Run the application
 # Pass DB_URL, DB_USERNAME, DB_PASSWORD, INTERNAL_API_KEY at runtime via -e flags
 ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE} -Dserver.port=${SERVER_PORT} -jar app.jar"]
+
