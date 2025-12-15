@@ -118,28 +118,21 @@ jobs:
           # Replace / with - and remove any invalid characters for Docker tags
           BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/\//-/g' | sed 's/[^a-zA-Z0-9._-]//g')
           
-          # Extract version from pom.xml
-          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout 2>/dev/null || echo "1.0.0")
-          # Remove -SNAPSHOT suffix if present
-          VERSION=$(echo "$VERSION" | sed 's/-SNAPSHOT//')
-          
           # Get current date in YYYYMMDD format
           BUILD_DATE=$(date -u +'%Y%m%d')
           BUILD_DATE_ISO=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           
-          # Create the tag: branch-version-date
-          IMAGE_TAG="${BRANCH_NAME}-${VERSION}-${BUILD_DATE}"
+          # Create the tag: branchName-date
+          IMAGE_TAG="${BRANCH_NAME}-${BUILD_DATE}"
           
           # Set outputs
           echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
           echo "build_date_iso=${BUILD_DATE_ISO}" >> $GITHUB_OUTPUT
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
           
           echo "📋 Tag Details:"
           echo "   Branch: ${BRANCH_NAME}"
-          echo "   Version: ${VERSION}"
           echo "   Date: ${BUILD_DATE}"
           echo "   Full Tag: ${IMAGE_TAG}"
 
@@ -156,14 +149,13 @@ jobs:
           echo "   shared-lib will be built inside Docker"
           echo "   Tag: ${IMAGE_TAG}"
           
-          # Build the Docker image with the new tag format: branch-version-date
+          # Build the Docker image with the new tag format: branchName-date
           docker build \
             --build-arg BUILD_DATE=${{ steps.meta.outputs.build_date_iso }} \
             --build-arg VCS_REF=${{ github.sha }} \
             --label "org.opencontainers.image.created=${{ steps.meta.outputs.build_date_iso }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
-            --label "org.opencontainers.image.version=${{ steps.meta.outputs.version }}" \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG} \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
             .
@@ -198,7 +190,6 @@ jobs:
           echo "| Repository | \`${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Image Tag | \`${{ steps.meta.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Branch | \`${{ steps.meta.outputs.branch_name }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Version | \`${{ steps.meta.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Build Date | \`${{ steps.meta.outputs.build_date }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit SHA | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
 
