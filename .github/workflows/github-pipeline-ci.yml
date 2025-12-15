@@ -196,9 +196,11 @@ jobs:
           echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Repository | \`${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| SHA Tag | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Environment | \`${{ steps.meta.outputs.env_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | \`${{ steps.meta.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ steps.meta.outputs.branch_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`${{ steps.meta.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Build Date | \`${{ steps.meta.outputs.build_date }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit SHA | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
 
       # ============================================
       # 10. Scan Image for Vulnerabilities
@@ -207,7 +209,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         continue-on-error: true
         with:
-          image-ref: '${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}'
+          image-ref: '${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.meta.outputs.image_tag }}'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
