@@ -150,26 +150,25 @@ jobs:
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ENV_TAG: ${{ steps.meta.outputs.env_tag }}
-          SHORT_SHA: ${{ steps.meta.outputs.short_sha }}
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
         run: |
           echo "🐳 Building Docker image with multi-stage build..."
           echo "   shared-lib will be built inside Docker"
+          echo "   Tag: ${IMAGE_TAG}"
           
-          # Build the Docker image with multiple tags
+          # Build the Docker image with the new tag format: branch-version-date
           docker build \
-            --build-arg BUILD_DATE=${{ steps.meta.outputs.build_date }} \
+            --build-arg BUILD_DATE=${{ steps.meta.outputs.build_date_iso }} \
             --build-arg VCS_REF=${{ github.sha }} \
-            --label "org.opencontainers.image.created=${{ steps.meta.outputs.build_date }}" \
+            --label "org.opencontainers.image.created=${{ steps.meta.outputs.build_date_iso }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }} \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:${ENV_TAG} \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:${ENV_TAG}-${SHORT_SHA} \
+            --label "org.opencontainers.image.version=${{ steps.meta.outputs.version }}" \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG} \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
             .
           
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
       # ============================================
       # 8. Push Docker Image to ECR
@@ -177,19 +176,14 @@ jobs:
       - name: Push Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ENV_TAG: ${{ steps.meta.outputs.env_tag }}
-          SHORT_SHA: ${{ steps.meta.outputs.short_sha }}
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
         run: |
           # Push all tags
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${ENV_TAG}
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${ENV_TAG}-${SHORT_SHA}
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG}
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           
           echo "✅ Successfully pushed images to ECR"
-          echo "   - $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"
-          echo "   - $ECR_REGISTRY/$ECR_REPOSITORY:${ENV_TAG}"
-          echo "   - $ECR_REGISTRY/$ECR_REPOSITORY:${ENV_TAG}-${SHORT_SHA}"
+          echo "   - $ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG}"
           echo "   - $ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
       # ============================================
