@@ -15,7 +15,7 @@ on:
       - 'src/**'
       - 'pom.xml'
       - 'Dockerfile'
-      - '.github/workflows/build-and-push-ecr.yml'
+      - '.github/workflows/github-pipeline-ci.yml'
   pull_request:
     branches:
       - main
