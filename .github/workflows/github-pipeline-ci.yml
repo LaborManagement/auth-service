@@ -33,7 +33,7 @@ on:
 
 env:
   AWS_REGION: ap-south-1
-  ECR_REPOSITORY: auth-service
+  ECR_REPOSITORY: lms/auth-service
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
