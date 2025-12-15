@@ -1,12 +1,38 @@
 # ============================================
-# Dockerfile for auth-service
+# Dockerfile for auth-service (Multi-stage build)
 # Supports: dev, staging, prod environments
 # Compatible with ARM64 (Apple Silicon) and AMD64
 # ============================================
-# Build JAR locally first: mvn clean package -DskipTests
-# Then: docker build -t auth-service:latest .
+# For CI/CD: docker build -t auth-service:latest .
+# For local: docker build -t auth-service:latest .
 # ============================================
 
+# ==================== STAGE 1: Build ====================
+FROM maven:3.9-eclipse-temurin-17 AS builder
+
+WORKDIR /build
+
+# Copy shared-lib first (if present) and install it
+# In CI, shared-lib is checked out to ./shared-lib directory
+COPY shared-lib/pom.xml ./shared-lib/pom.xml
+COPY shared-lib/src ./shared-lib/src
+
+# Build and install shared-lib to local Maven repository
+RUN cd shared-lib && mvn clean install -DskipTests -B -q
+
+# Copy auth-service pom.xml first for dependency caching
+COPY pom.xml .
+
+# Download dependencies (cached layer if pom.xml unchanged)
+RUN mvn dependency:go-offline -B -q || true
+
+# Copy auth-service source code
+COPY src ./src
+
+# Build auth-service (shared-lib is now available in local Maven repo)
+RUN mvn clean package spring-boot:repackage -DskipTests -B -q
+
+# ==================== STAGE 2: Runtime ====================
 FROM eclipse-temurin:17-jre
 
 # Labels for container metadata
@@ -27,8 +53,8 @@ RUN mkdir -p /app/logs /app/config /tmp && \
 # Create a volume for temporary files and logs
 VOLUME ["/tmp", "/app/logs"]
 
-# Copy the pre-built jar file from target directory
-COPY target/user-auth-service-*.jar app.jar
+# Copy the built jar from builder stage
+COPY --from=builder /build/target/user-auth-service-*.jar app.jar
 
 # Change ownership of the jar
 RUN chown appuser:appgroup app.jar

@@ -75,48 +75,23 @@ jobs:
           path: shared-lib
           token: ${{ secrets.PAT_TOKEN }}
           ref: rahulc_branch
-
-      # ============================================
-      # 4. Build and install shared-lib
-      # ============================================
-      - name: Build shared-lib
+      
+      - name: Verify shared-lib checkout
         run: |
           echo "📂 Verifying shared-lib checkout..."
+          if [ ! -d "shared-lib" ]; then
+            echo "❌ ERROR: shared-lib directory does not exist!"
+            exit 1
+          fi
           ls -la shared-lib/
           if [ ! -f shared-lib/pom.xml ]; then
             echo "❌ ERROR: shared-lib/pom.xml not found!"
             exit 1
           fi
-          
-          echo "🔨 Building shared-lib..."
-          cd shared-lib
-          mvn clean install -DskipTests -B -e
-          
-          echo "✅ Verifying shared-lib installation in local Maven repository..."
-          ls -la ~/.m2/repository/com/shared/shared-lib/0.0.1-SNAPSHOT/ || echo "❌ shared-lib not found in Maven repo!"
-          
-          if [ -f ~/.m2/repository/com/shared/shared-lib/0.0.1-SNAPSHOT/shared-lib-0.0.1-SNAPSHOT.jar ]; then
-            echo "✅ shared-lib successfully installed to local Maven repository"
-          else
-            echo "❌ ERROR: shared-lib JAR not found in Maven repository!"
-            exit 1
-          fi
+          echo "✅ shared-lib checkout verified"
 
       # ============================================
-      # 5. Build auth-service with Maven
-      # ============================================
-      - name: Build with Maven
-        run: |
-          echo "🔍 Confirming shared-lib is available..."
-          ls -la ~/.m2/repository/com/shared/shared-lib/0.0.1-SNAPSHOT/
-          
-          echo "🔨 Building auth-service..."
-          mvn clean package spring-boot:repackage -DskipTests -B -e
-          echo "✅ JAR file built successfully"
-          ls -la target/*.jar
-
-      # ============================================
-      # 6. Configure AWS Credentials
+      # 4. Configure AWS Credentials
       # ============================================
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -126,14 +101,14 @@ jobs:
           aws-region: ap-south-1
 
       # ============================================
-      # 7. Login to Amazon ECR
+      # 5. Login to Amazon ECR
       # ============================================
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       # ============================================
-      # 8. Extract metadata for Docker
+      # 6. Extract metadata for Docker
       # ============================================
       - name: Extract metadata
         id: meta
@@ -156,7 +131,7 @@ jobs:
           echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
       # ============================================
-      # 9. Build Docker Image
+      # 7. Build Docker Image (Multi-stage build includes shared-lib)
       # ============================================
       - name: Build Docker image
         id: build-image
@@ -165,6 +140,9 @@ jobs:
           ENV_TAG: ${{ steps.meta.outputs.env_tag }}
           SHORT_SHA: ${{ steps.meta.outputs.short_sha }}
         run: |
+          echo "🐳 Building Docker image with multi-stage build..."
+          echo "   shared-lib will be built inside Docker"
+          
           # Build the Docker image with multiple tags
           docker build \
             --build-arg BUILD_DATE=${{ steps.meta.outputs.build_date }} \
@@ -181,7 +159,7 @@ jobs:
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}" >> $GITHUB_OUTPUT
 
       # ============================================
-      # 10. Push Docker Image to ECR
+      # 8. Push Docker Image to ECR
       # ============================================
       - name: Push Docker image to ECR
         env:
@@ -202,7 +180,7 @@ jobs:
           echo "   - $ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
       # ============================================
-      # 11. Output Image URI
+      # 9. Output Image URI
       # ============================================
       - name: Output image details
         run: |
@@ -216,7 +194,7 @@ jobs:
           echo "| Build Date | \`${{ steps.meta.outputs.build_date }}\` |" >> $GITHUB_STEP_SUMMARY
 
       # ============================================
-      # 12. Scan Image for Vulnerabilities (Optional)
+      # 10. Scan Image for Vulnerabilities (Optional)
       # ============================================
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
