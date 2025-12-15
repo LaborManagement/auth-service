@@ -66,7 +66,26 @@ jobs:
           cache: maven
 
       # ============================================
-      # 3. Build with Maven
+      # 3. Checkout shared-lib dependency
+      # ============================================
+      - name: Checkout shared-lib
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/shared-lib
+          path: shared-lib
+          token: ${{ secrets.PAT_TOKEN }}
+
+      # ============================================
+      # 4. Build and install shared-lib
+      # ============================================
+      - name: Build shared-lib
+        run: |
+          cd shared-lib
+          mvn clean install -DskipTests -B
+          echo "shared-lib built and installed to local Maven repository"
+
+      # ============================================
+      # 5. Build auth-service with Maven
       # ============================================
       - name: Build with Maven
         run: |
@@ -75,26 +94,24 @@ jobs:
           ls -la target/*.jar
 
       # ============================================
-      # 4. Configure AWS Credentials (OIDC)
+      # 6. Configure AWS Credentials
       # ============================================
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          role-to-assume: arn:aws:ecr:ap-south-1:695546167399:repository/lms/auth-service
-          role-session-name: GitHubActions-AuthService
-          # aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
       # ============================================
-      # 5. Login to Amazon ECR
+      # 7. Login to Amazon ECR
       # ============================================
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       # ============================================
-      # 6. Extract metadata for Docker
+      # 8. Extract metadata for Docker
       # ============================================
       - name: Extract metadata
         id: meta
@@ -117,7 +134,7 @@ jobs:
           echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
       # ============================================
-      # 7. Build Docker Image
+      # 9. Build Docker Image
       # ============================================
       - name: Build Docker image
         id: build-image
@@ -142,7 +159,7 @@ jobs:
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}" >> $GITHUB_OUTPUT
 
       # ============================================
-      # 8. Push Docker Image to ECR
+      # 10. Push Docker Image to ECR
       # ============================================
       - name: Push Docker image to ECR
         env:
@@ -163,7 +180,7 @@ jobs:
           echo "   - $ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
       # ============================================
-      # 9. Output Image URI
+      # 11. Output Image URI
       # ============================================
       - name: Output image details
         run: |
@@ -177,7 +194,7 @@ jobs:
           echo "| Build Date | \`${{ steps.meta.outputs.build_date }}\` |" >> $GITHUB_STEP_SUMMARY
 
       # ============================================
-      # 10. Scan Image for Vulnerabilities (Optional)
+      # 12. Scan Image for Vulnerabilities (Optional)
       # ============================================
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
