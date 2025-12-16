@@ -71,7 +71,7 @@ USER appuser
 
 # Environment variables with defaults
 ENV SPRING_PROFILES_ACTIVE=prod
-ENV SERVER_PORT=80
+ENV SERVER_PORT=8080
 
 # JVM options for container environment
 ENV JAVA_OPTS="-XX:+UseContainerSupport \
@@ -83,11 +83,11 @@ ENV JAVA_OPTS="-XX:+UseContainerSupport \
     -Djava.security.egd=file:/dev/./urandom"
 
 # Expose the application port
-EXPOSE 80
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:80/actuator/health || exit 1
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
 
 # Run the application
 # Pass DB_URL, DB_USERNAME, DB_PASSWORD, INTERNAL_API_KEY at runtime via -e flags
