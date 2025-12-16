@@ -40,6 +40,13 @@ LABEL maintainer="LMS Team"
 LABEL service="auth-service"
 LABEL version="1.0"
 
+# Update system packages to patch security vulnerabilities (CVE-2025-64720, CVE-2025-64506, CVE-2025-64505)
+# Then clean up to reduce image size
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends libpng16-16t64 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # Create non-root user for security
 RUN groupadd -g 1001 appgroup && \
     useradd -u 1001 -g appgroup -s /bin/bash appuser
@@ -64,7 +71,7 @@ USER appuser
 
 # Environment variables with defaults
 ENV SPRING_PROFILES_ACTIVE=prod
-ENV SERVER_PORT=8080
+ENV SERVER_PORT=80
 
 # JVM options for container environment
 ENV JAVA_OPTS="-XX:+UseContainerSupport \
@@ -76,11 +83,11 @@ ENV JAVA_OPTS="-XX:+UseContainerSupport \
     -Djava.security.egd=file:/dev/./urandom"
 
 # Expose the application port
-EXPOSE 8080
+EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8080/actuator/health || exit 1
+    CMD curl -f http://localhost:80/actuator/health || exit 1
 
 # Run the application
 # Pass DB_URL, DB_USERNAME, DB_PASSWORD, INTERNAL_API_KEY at runtime via -e flags

@@ -133,7 +133,7 @@ management:
       environment: prod
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:80}
   compression:
     enabled: true
     mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
