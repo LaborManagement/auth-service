@@ -173,7 +173,19 @@ jobs:
           echo "   - $ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
       # ============================================
-      # 9. Output Image URI
+      # 9. Save image tag for CD
+      # ============================================
+      - name: Save image tag for CD
+        run: echo "${{ steps.meta.outputs.image_tag }}" > image_tag.txt
+
+      - name: Upload image tag artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image_tag
+          path: image_tag.txt
+
+      # ============================================
+      # 10. Output Image URI
       # ============================================
       - name: Output image details
         run: |
