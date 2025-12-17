@@ -73,3 +73,4 @@ jobs:
             --service ${{ env.ECS_SERVICE }} \
             --task-definition $TASK_DEF_ARN \
             --force-new-deployment
+
