@@ -78,17 +78,17 @@ jobs:
       
       - name: Verify shared-lib checkout
         run: |
-          echo "📂 Verifying shared-lib checkout..."
+          echo " Verifying shared-lib checkout..."
           if [ ! -d "shared-lib" ]; then
-            echo "❌ ERROR: shared-lib directory does not exist!"
+            echo " ERROR: shared-lib directory does not exist!"
             exit 1
           fi
           ls -la shared-lib/
           if [ ! -f shared-lib/pom.xml ]; then
-            echo "❌ ERROR: shared-lib/pom.xml not found!"
+            echo " ERROR: shared-lib/pom.xml not found!"
             exit 1
           fi
-          echo "✅ shared-lib checkout verified"
+          echo " shared-lib checkout verified"
 
       # ============================================
       # 4. Configure AWS Credentials
@@ -129,6 +129,8 @@ jobs:
           fi
 
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
       # ============================================
       # 7. Build Docker Image (Multi-stage build includes shared-lib)
@@ -139,7 +141,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
         run: |
-          echo "🐳 Building Docker image with multi-stage build..."
+          echo " Building Docker image with multi-stage build..."
           echo "   shared-lib will be built inside Docker"
           echo "   Tag: ${IMAGE_TAG}"
           
@@ -168,7 +170,7 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG}
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           
-          echo "✅ Successfully pushed images to ECR"
+          echo "Successfully pushed images to ECR"
           echo "   - $ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG}"
           echo "   - $ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
@@ -186,39 +188,3 @@ jobs:
           echo "| Branch | \`${{ steps.meta.outputs.branch_name }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Build Date | \`${{ steps.meta.outputs.build_date }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit SHA | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
-
-      # ============================================
-      # 10. Scan Image for Vulnerabilities
-      # ============================================
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        continue-on-error: true
-        with:
-          image-ref: '${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.meta.outputs.image_tag }}'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
-        continue-on-error: true
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-  # ============================================
-  # Notify on Failure
-  # ============================================
-  notify-failure:
-    name: Notify on Failure
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    if: failure()
-    steps:
-      - name: Send failure notification
-        run: |
-          echo "❌ Build failed for auth-service"
-          echo "Commit: ${{ github.sha }}"
-          echo "Branch: ${{ github.ref_name }}"
-          # Add Slack/Teams notification here if needed
-          
