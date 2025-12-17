@@ -5,6 +5,8 @@ on:
     workflows: ["Build and Push to ECR"]
     types:
       - completed
+    branches:
+      - develop
 
 env:
   AWS_REGION: ap-south-1
