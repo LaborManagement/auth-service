@@ -154,6 +154,11 @@ jobs:
           aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${{ needs.build.outputs.ecr_registry }}
           docker pull ${{ needs.build.outputs.ecr_registry }}/${{ env.ECR_REPOSITORY }}:${{ needs.build.outputs.image_tag }}
 
+      - name: Tag image as latest
+        run: |
+          docker tag ${{ needs.build.outputs.ecr_registry }}/${{ env.ECR_REPOSITORY }}:${{ needs.build.outputs.image_tag }} \
+            ${{ needs.build.outputs.ecr_registry }}/${{ env.ECR_REPOSITORY }}:latest
+
       - name: Push Docker image to ECR
         run: |
           docker push ${{ needs.build.outputs.ecr_registry }}/${{ env.ECR_REPOSITORY }}:${{ needs.build.outputs.image_tag }}
