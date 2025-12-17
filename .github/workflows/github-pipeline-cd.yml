@@ -13,7 +13,7 @@ env:
   ECR_REPO: 695546167399.dkr.ecr.ap-south-1.amazonaws.com/lms/auth-service
   CONTAINER_NAME: dev-auth-service
   ECS_CLUSTER: lms-services-dev
-  ECS_SERVICE: lms-auth-service-dev-task-service-d4p9
+  ECS_SERVICE: lms-auth-service-dev-task-service-d4p5ubg2
 
 jobs:
   deploy:
