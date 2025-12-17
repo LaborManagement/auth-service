@@ -1,4 +1,4 @@
-package com.example.userauth.service.dto;
+package com.example.userauth.dto;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -6,7 +6,8 @@ import java.util.Set;
 
 /**
  * Immutable snapshot representing the authorization state for a user.
- * This is built on-demand (no caching yet) and reused by UI and backend enforcement.
+ * This is built on-demand (no caching yet) and reused by UI and backend
+ * enforcement.
  * 
  * Authorization is now directly based on: User → Role → Policy → Endpoint
  */

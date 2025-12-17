@@ -1,36 +1,50 @@
 package com.example.userauth.controller;
 
-import com.example.userauth.dto.*;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.userauth.dao.UserQueryDao;
+import com.example.userauth.dto.AuthResponse;
+import com.example.userauth.dto.LoginRequest;
+import com.example.userauth.dto.PermissionResponse;
+import com.example.userauth.dto.RegisterRequest;
+import com.example.userauth.dto.UpdateUserRequest;
+import com.example.userauth.dto.UserListResponse;
 import com.example.userauth.entity.Role;
 import com.example.userauth.entity.User;
 import com.example.userauth.entity.UserRole;
 import com.example.userauth.service.AuthService;
-import com.example.userauth.dao.UserQueryDao;
-import com.example.userauth.service.UIConfigService;
 import com.example.userauth.service.RoleService;
+import com.example.userauth.service.UIConfigService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shared.common.annotation.Auditable;
+import com.shared.common.util.ETagUtil;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpHeaders;
 import jakarta.servlet.http.HttpServletRequest;
-import com.shared.common.util.ETagUtil;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.util.StringUtils;
-
-
-import com.shared.common.annotation.Auditable;
-import java.util.List;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.Map;
+import jakarta.validation.Valid;
 
 /**
  * Controller for authentication and user management
@@ -40,12 +54,12 @@ import java.util.Map;
 @Tag(name = "Authentication", description = "User authentication and registration APIs")
 @SecurityRequirement(name = "Bearer Authentication")
 public class AuthController {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
-    
+
     @Autowired
     private AuthService authService;
-    
+
     @Autowired
     private UIConfigService uiConfigService;
 
@@ -54,16 +68,17 @@ public class AuthController {
 
     @Autowired
     private ObjectMapper objectMapper;
-    
+
     @PostMapping("/login")
     @Auditable(action = "LOGIN_ATTEMPT", resourceType = "USER")
-    @Operation(summary = "User login", description = "Authenticate user and return JWT token")
+    @Operation(summary = "User login", description = "Authenticate user and return JWT token", requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Login credentials", required = true))
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Login successful"),
-        @ApiResponse(responseCode = "401", description = "Invalid credentials"),
-        @ApiResponse(responseCode = "400", description = "Invalid request data")
+            @ApiResponse(responseCode = "200", description = "Login successful, returns JWT token and user info", content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json", schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = AuthResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials", content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json")),
+            @ApiResponse(responseCode = "400", description = "Invalid request data", content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json"))
     })
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> login(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Login credentials", required = true) @Valid @RequestBody LoginRequest loginRequest) {
         try {
             logger.info("Login attempt for user: {}", loginRequest.getUsername());
             AuthResponse response = authService.login(loginRequest);
@@ -71,7 +86,7 @@ public class AuthController {
         } catch (Exception e) {
             logger.error("Login failed for user: {}", loginRequest.getUsername(), e);
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Invalid username or password"));
+                    .body(Map.of("error", "Invalid username or password"));
         }
     }
 
@@ -79,15 +94,15 @@ public class AuthController {
     @Auditable(action = "LOGOUT", resourceType = "USER")
     @Operation(summary = "User logout", description = "Revoke the current JWT token")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Logout successful"),
-        @ApiResponse(responseCode = "400", description = "Authorization header missing"),
-        @ApiResponse(responseCode = "401", description = "Invalid or expired token")
+            @ApiResponse(responseCode = "200", description = "Logout successful"),
+            @ApiResponse(responseCode = "400", description = "Authorization header missing"),
+            @ApiResponse(responseCode = "401", description = "Invalid or expired token")
     })
     public ResponseEntity<?> logout(HttpServletRequest request) {
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Authorization header with Bearer token is required"));
+                    .body(Map.of("error", "Authorization header with Bearer token is required"));
         }
 
         String token = authHeader.substring(7);
@@ -103,13 +118,13 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("error", "Invalid or expired token"));
         }
     }
-    
+
     @PostMapping("/users")
     @Auditable(action = "REGISTER_ATTEMPT", resourceType = "USER")
     @Operation(summary = "User registration", description = "Register a new user account")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "201", description = "Registration successful"),
-        @ApiResponse(responseCode = "400", description = "Registration failed - username or email already exists")
+            @ApiResponse(responseCode = "201", description = "Registration successful"),
+            @ApiResponse(responseCode = "400", description = "Registration failed - username or email already exists")
     })
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest registerRequest) {
         try {
@@ -119,11 +134,10 @@ public class AuthController {
         } catch (Exception e) {
             logger.error("Registration failed for user: {}", registerRequest.getUsername(), e);
             return ResponseEntity.badRequest()
-                .body(Map.of("error", e.getMessage()));
+                    .body(Map.of("error", e.getMessage()));
         }
     }
-    
-    
+
     @Auditable(action = "GET_UI_CONFIG", resourceType = "USER")
     @GetMapping("/ui-config")
     @Operation(summary = "Get UI configuration", description = "Get complete UI configuration including navigation and permissions for current user")
@@ -142,16 +156,16 @@ public class AuthController {
                 return ResponseEntity.ok().eTag(eTag).body(uiConfig);
             } else {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("error", "User not authenticated"));
+                        .body(Map.of("error", "User not authenticated"));
             }
         } catch (Exception e) {
             logger.error("Failed to get UI configuration", e);
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Failed to retrieve UI configuration"));
+                    .body(Map.of("error", "Failed to retrieve UI configuration"));
         }
     }
-    
-        @GetMapping("/users")
+
+    @GetMapping("/users")
     @Operation(summary = "Get all users", description = "Get list of all users (Requires authentication)")
     @ApiResponse(responseCode = "200", description = "Users retrieved successfully")
     @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
@@ -172,14 +186,14 @@ public class AuthController {
             return ResponseEntity.internalServerError().build();
         }
     }
-    
+
     @Auditable(action = "GET_USERS_BY_ROLE", resourceType = "USER")
     @GetMapping("/users/role/{role}")
     @Operation(summary = "Get users by role", description = "Get users filtered by role (Requires authentication)")
     @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
     public ResponseEntity<List<UserListResponse>> getUsersByRole(
-        @Parameter(description = "User role") @PathVariable UserRole role,
-        HttpServletRequest request) {
+            @Parameter(description = "User role") @PathVariable UserRole role,
+            HttpServletRequest request) {
         List<UserQueryDao.UserWithDetails> users = authService.getUsersByRole(role);
         List<UserListResponse> userResponses = authService.convertToUserListResponse(users);
         try {
@@ -218,111 +232,106 @@ public class AuthController {
                     .body(Map.of("error", "Failed to retrieve user roles"));
         }
     }
-    
+
     @Auditable(action = "UPDATE_USER_STATUS", resourceType = "USER")
     @PutMapping("/users/{userId}/status")
     @Operation(summary = "Update user status", description = "Enable or disable user account (Requires authentication)")
     @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
     public ResponseEntity<?> updateUserStatus(
-        @Parameter(description = "User ID") @PathVariable Long userId,
-        @Parameter(description = "Enable/disable user") @RequestParam boolean enabled) {
+            @Parameter(description = "User ID") @PathVariable Long userId,
+            @Parameter(description = "Enable/disable user") @RequestParam boolean enabled) {
         try {
             authService.updateUserStatus(userId, enabled);
             return ResponseEntity.ok(Map.of(
-                "message", "User status updated successfully",
-                "userId", userId,
-                "enabled", enabled
-            ));
+                    "message", "User status updated successfully",
+                    "userId", userId,
+                    "enabled", enabled));
         } catch (Exception e) {
             logger.error("Failed to update user status", e);
             return ResponseEntity.badRequest()
-                .body(Map.of("error", e.getMessage()));
+                    .body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     @Auditable(action = "UPDATE_USER_ROLES", resourceType = "USER")
     @PutMapping("/users/{userId}/roles")
     @Operation(summary = "Update user roles", description = "Update user's roles and invalidate existing tokens (Requires authentication)")
     @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
     public ResponseEntity<?> updateUserRoles(
-        @Parameter(description = "User ID") @PathVariable Long userId,
-        @Parameter(description = "Role IDs") @RequestBody java.util.Set<Long> roleIds) {
+            @Parameter(description = "User ID") @PathVariable Long userId,
+            @Parameter(description = "Role IDs") @RequestBody java.util.Set<Long> roleIds) {
         try {
             AuthService.RoleUpdateResult result = authService.updateUserRoles(userId, roleIds);
             return ResponseEntity.ok(Map.of(
-                "message", "User roles updated successfully.",
-                "userId", userId,
-                "roleIds", result.roleIds(),
-                "roleNames", result.roleNames()
-            ));
+                    "message", "User roles updated successfully.",
+                    "userId", userId,
+                    "roleIds", result.roleIds(),
+                    "roleNames", result.roleNames()));
         } catch (Exception e) {
             logger.error("Failed to update user roles", e);
             return ResponseEntity.badRequest()
-                .body(Map.of("error", e.getMessage()));
+                    .body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     @Auditable(action = "UPDATE_USER", resourceType = "USER")
     @PutMapping("/users/{userId}")
     @Operation(summary = "Update user", description = "Update user information (Requires authentication)")
     @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
     public ResponseEntity<?> updateUser(
-        @Parameter(description = "User ID") @PathVariable Long userId,
-        @Valid @RequestBody UpdateUserRequest request) {
+            @Parameter(description = "User ID") @PathVariable Long userId,
+            @Valid @RequestBody UpdateUserRequest request) {
         try {
             User updatedUser = authService.updateUser(userId, request);
             return ResponseEntity.ok(Map.of(
-                "message", "User updated successfully",
-                "userId", updatedUser.getId(),
-                "username", updatedUser.getUsername(),
-                "email", updatedUser.getEmail(),
-                "fullName", updatedUser.getFullName()
-            ));
+                    "message", "User updated successfully",
+                    "userId", updatedUser.getId(),
+                    "username", updatedUser.getUsername(),
+                    "email", updatedUser.getEmail(),
+                    "fullName", updatedUser.getFullName()));
         } catch (Exception e) {
             logger.error("Failed to update user", e);
             return ResponseEntity.badRequest()
-                .body(Map.of("error", e.getMessage()));
+                    .body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     @Auditable(action = "DELETE_USER", resourceType = "USER")
     @DeleteMapping("/users/{userId}")
     @Operation(summary = "Delete user", description = "Soft delete user by disabling the account (Requires authentication)")
     @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
     public ResponseEntity<?> deleteUser(
-        @Parameter(description = "User ID") @PathVariable Long userId) {
+            @Parameter(description = "User ID") @PathVariable Long userId) {
         try {
             authService.deleteUser(userId);
             return ResponseEntity.ok(Map.of(
-                "message", "User deleted successfully",
-                "userId", userId
-            ));
+                    "message", "User deleted successfully",
+                    "userId", userId));
         } catch (Exception e) {
             logger.error("Failed to delete user", e);
             return ResponseEntity.badRequest()
-                .body(Map.of("error", e.getMessage()));
+                    .body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     @Auditable(action = "INVALIDATE_USER_TOKENS", resourceType = "USER")
     @PostMapping("/users/{userId}/invalidate-tokens")
     @Operation(summary = "Invalidate user tokens", description = "Manually invalidate all JWT tokens for a user (Requires authentication)")
     @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "Bearer Authentication")
     public ResponseEntity<?> invalidateUserTokens(
-        @Parameter(description = "User ID") @PathVariable Long userId) {
+            @Parameter(description = "User ID") @PathVariable Long userId) {
         try {
             authService.updateUserPermissions(userId);
             return ResponseEntity.ok(Map.of(
-                "message", "All tokens for user have been invalidated. User must re-login.",
-                "userId", userId
-            ));
+                    "message", "All tokens for user have been invalidated. User must re-login.",
+                    "userId", userId));
         } catch (Exception e) {
             logger.error("Failed to invalidate user tokens", e);
             return ResponseEntity.badRequest()
-                .body(Map.of("error", e.getMessage()));
+                    .body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     @Auditable(action = "GET_AVAILABLE_ROLES", resourceType = "ROLE")
     @GetMapping("/roles")
     @Operation(summary = "Get available roles", description = "Get list of available user roles")

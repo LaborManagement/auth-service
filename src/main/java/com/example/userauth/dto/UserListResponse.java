@@ -18,14 +18,16 @@ public class UserListResponse {
     private LocalDateTime lastLogin;
     private String boardId;
     private String employerId;
-    
+    private String userType;
+    private String toliId;
+
     public UserListResponse() {
     }
-    
-    public UserListResponse(Long id, String username, String email, String fullName, 
-                           Boolean isActive, Set<RoleInfo> roles, 
-                           LocalDateTime createdAt, LocalDateTime lastLogin,
-                           String boardId, String employerId) {
+
+    public UserListResponse(Long id, String username, String email, String fullName,
+            Boolean isActive, Set<RoleInfo> roles,
+            LocalDateTime createdAt, LocalDateTime lastLogin,
+            String boardId, String employerId, String userType, String toliId) {
         this.id = id;
         this.username = username;
         this.email = email;
@@ -36,6 +38,24 @@ public class UserListResponse {
         this.lastLogin = lastLogin;
         this.boardId = boardId;
         this.employerId = employerId;
+        this.userType = userType;
+        this.toliId = toliId;
+    }
+
+    public String getToliId() {
+        return toliId;
+    }
+
+    public void setToliId(String toliId) {
+        this.toliId = toliId;
+    }
+
+    public String getUserType() {
+        return userType;
+    }
+
+    public void setUserType(String userType) {
+        this.userType = userType;
     }
 
     public String getBoardId() {
@@ -53,72 +73,72 @@ public class UserListResponse {
     public void setEmployerId(String employerId) {
         this.employerId = employerId;
     }
-    
+
     // Getters and Setters
     public Long getId() {
         return id;
     }
-    
+
     public void setId(Long id) {
         this.id = id;
     }
-    
+
     public String getUsername() {
         return username;
     }
-    
+
     public void setUsername(String username) {
         this.username = username;
     }
-    
+
     public String getEmail() {
         return email;
     }
-    
+
     public void setEmail(String email) {
         this.email = email;
     }
-    
+
     public String getFullName() {
         return fullName;
     }
-    
+
     public void setFullName(String fullName) {
         this.fullName = fullName;
     }
-    
+
     public Boolean getIsActive() {
         return isActive;
     }
-    
+
     public void setIsActive(Boolean isActive) {
         this.isActive = isActive;
     }
-    
+
     public Set<RoleInfo> getRoles() {
         return roles;
     }
-    
+
     public void setRoles(Set<RoleInfo> roles) {
         this.roles = roles;
     }
-    
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
-    
+
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
-    
+
     public LocalDateTime getLastLogin() {
         return lastLogin;
     }
-    
+
     public void setLastLogin(LocalDateTime lastLogin) {
         this.lastLogin = lastLogin;
     }
-    
+
     /**
      * Nested DTO for role information
      */
@@ -127,50 +147,50 @@ public class UserListResponse {
         private String name;
         private String description;
         private Set<PolicyInfo> policies;
-        
+
         public RoleInfo() {
         }
-        
+
         public RoleInfo(Long id, String name, String description, Set<PolicyInfo> policies) {
             this.id = id;
             this.name = name;
             this.description = description;
             this.policies = policies;
         }
-        
+
         public Long getId() {
             return id;
         }
-        
+
         public void setId(Long id) {
             this.id = id;
         }
-        
+
         public String getName() {
             return name;
         }
-        
+
         public void setName(String name) {
             this.name = name;
         }
-        
+
         public String getDescription() {
             return description;
         }
-        
+
         public void setDescription(String description) {
             this.description = description;
         }
-        
+
         public Set<PolicyInfo> getPolicies() {
             return policies;
         }
-        
+
         public void setPolicies(Set<PolicyInfo> policies) {
             this.policies = policies;
         }
     }
-    
+
     /**
      * Nested DTO for policy information
      */
@@ -179,45 +199,45 @@ public class UserListResponse {
         private String name;
         private String description;
         private String type;
-        
+
         public PolicyInfo() {
         }
-        
+
         public PolicyInfo(Long id, String name, String description, String type) {
             this.id = id;
             this.name = name;
             this.description = description;
             this.type = type;
         }
-        
+
         public Long getId() {
             return id;
         }
-        
+
         public void setId(Long id) {
             this.id = id;
         }
-        
+
         public String getName() {
             return name;
         }
-        
+
         public void setName(String name) {
             this.name = name;
         }
-        
+
         public String getDescription() {
             return description;
         }
-        
+
         public void setDescription(String description) {
             this.description = description;
         }
-        
+
         public String getType() {
             return type;
         }
-        
+
         public void setType(String type) {
             this.type = type;
         }

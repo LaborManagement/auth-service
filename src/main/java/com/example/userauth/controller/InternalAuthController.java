@@ -1,11 +1,5 @@
 package com.example.userauth.controller;
 
-import com.example.userauth.dto.internal.TokenIntrospectionRequest;
-import com.example.userauth.dto.internal.TokenIntrospectionResponse;
-import com.example.userauth.service.TokenIntrospectionService;
-import io.jsonwebtoken.JwtException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,8 +11,21 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.userauth.dto.internal.TokenIntrospectionRequest;
+import com.example.userauth.dto.internal.TokenIntrospectionResponse;
+import com.example.userauth.service.TokenIntrospectionService;
+
+import io.jsonwebtoken.JwtException;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/internal/auth")
+@Tag(name = "Internal Auth", description = "Internal API for token introspection (service-to-service)")
 public class InternalAuthController {
 
     private static final Logger log = LoggerFactory.getLogger(InternalAuthController.class);
@@ -28,19 +35,25 @@ public class InternalAuthController {
     private final String apiKeyHeader;
 
     public InternalAuthController(TokenIntrospectionService tokenIntrospectionService,
-                                  @Value("${shared-lib.security.introspection.api-key:}") String sharedApiKey,
-                                  @Value("${shared-lib.security.introspection.api-key-header:X-Internal-Api-Key}") String sharedHeader,
-                                  @Value("${auth.internal.api-key:}") String overrideApiKey,
-                                  @Value("${auth.internal.api-key-header:}") String overrideHeader) {
+            @Value("${shared-lib.security.introspection.api-key:}") String sharedApiKey,
+            @Value("${shared-lib.security.introspection.api-key-header:X-Internal-Api-Key}") String sharedHeader,
+            @Value("${auth.internal.api-key:}") String overrideApiKey,
+            @Value("${auth.internal.api-key-header:}") String overrideHeader) {
         this.tokenIntrospectionService = tokenIntrospectionService;
         this.expectedApiKey = StringUtils.hasText(overrideApiKey) ? overrideApiKey : sharedApiKey;
         this.apiKeyHeader = StringUtils.hasText(overrideHeader) ? overrideHeader : sharedHeader;
     }
 
     @PostMapping("/introspect")
+    @Operation(summary = "Introspect JWT token", description = "Validates and returns details about a JWT token for internal service-to-service calls.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Token introspected successfully"),
+            @ApiResponse(responseCode = "401", description = "Invalid or missing API key"),
+            @ApiResponse(responseCode = "400", description = "Invalid request body")
+    })
     public ResponseEntity<TokenIntrospectionResponse> introspect(
-        @Valid @RequestBody TokenIntrospectionRequest request,
-        HttpServletRequest servletRequest) {
+            @Valid @RequestBody TokenIntrospectionRequest request,
+            HttpServletRequest servletRequest) {
 
         if (StringUtils.hasText(expectedApiKey)) {
             String providedKey = servletRequest.getHeader(apiKeyHeader);

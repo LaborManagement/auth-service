@@ -1,4 +1,4 @@
-package com.example.userauth.service.dto;
+package com.example.userauth.dto;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -6,7 +6,8 @@ import java.util.Set;
 
 /**
  * Metadata describing the authorization requirements for a cataloged endpoint.
- * Authorization is determined by checking if the user's policies match the endpoint's required policies.
+ * Authorization is determined by checking if the user's policies match the
+ * endpoint's required policies.
  */
 public class EndpointAuthorizationMetadata {
 
@@ -16,9 +17,9 @@ public class EndpointAuthorizationMetadata {
     private final Set<Long> policyIds;
 
     public EndpointAuthorizationMetadata(boolean endpointFound,
-                                         Long endpointId,
-                                         boolean hasPolicies,
-                                         Set<Long> policyIds) {
+            Long endpointId,
+            boolean hasPolicies,
+            Set<Long> policyIds) {
         this.endpointFound = endpointFound;
         this.endpointId = endpointId;
         this.hasPolicies = hasPolicies;

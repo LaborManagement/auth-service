@@ -24,6 +24,18 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         default_schema: auth
 
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    issuer: ${APP_JWT_ISSUER:user-auth-service}
+    audience: ${APP_JWT_AUDIENCE:payment-services}
+    expiration: ${APP_JWT_EXPIRATION:86400}
+  base-dir: mt940/
+  inbox-dir: mt940/inbox/
+  processing-dir: mt940/processing/
+  archive-dir: mt940/archive/
+  quarantine-dir: mt940/quarantine/
+
 logging:
   level:
     "[com.example.paymentreconciliation]": INFO
@@ -40,7 +52,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,env
+        include: health,info,metrics,env,loggers,beans
 
 # Auditing toggle
 auditing:
@@ -53,13 +65,31 @@ shared-lib:
     service-name: auth-service
     source-schema: auth
     source-table: users
+    hashing-algorithm: SHA-256
+    initial-hash-value: 0000000000000000000000000000000000000000000000000000000000000000
   audit:
     enabled: true
     table-name: audit.audit_event
     service-name: auth-service
     source-schema: auth
+    hashing-algorithm: SHA-256
+    initial-hash-value: 0000000000000000000000000000000000000000000000000000000000000000
+  # SFTP Utility Configuration
+  sftp:
+    enabled: false
+    host: ${SFTP_HOST:localhost}
+    port: ${SFTP_PORT:22}
+    username: ${SFTP_USERNAME:user}
+    password: ${SFTP_PASSWORD:password}
+    remote-directory: ${SFTP_REMOTE_DIRECTORY:/incoming}
+    local-directory: ${SFTP_LOCAL_DIRECTORY:/tmp/sftp}
+    known-hosts-file: ${SFTP_KNOWN_HOSTS_FILE:~/.ssh/known_hosts}
+    strict-host-key-checking: ${SFTP_STRICT_HOST_KEY_CHECKING:true}
+  filters:
+    enabled: true
 
 server:
+  address: 0.0.0.0
   port: ${SERVER_PORT:8080}
 
 auth:

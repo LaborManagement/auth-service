@@ -1,19 +1,15 @@
 package com.example.userauth.service;
 
-import com.example.userauth.dto.AuthResponse;
-import com.example.userauth.dto.LoginRequest;
-import com.example.userauth.dto.RegisterRequest;
-import com.example.userauth.dto.UpdateUserRequest;
-import com.example.userauth.dto.UserListResponse;
-import com.example.userauth.entity.Role;
-import com.example.userauth.entity.User;
-import com.example.userauth.entity.UserRole;
-import com.example.userauth.entity.UserTenantAcl;
-import com.example.userauth.repository.UserRepository;
-import com.example.userauth.repository.RoleRepository;
-import com.example.userauth.repository.UserTenantAclRepository;
-import com.example.userauth.security.JwtUtils;
-import com.example.userauth.dao.UserQueryDao;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,79 +22,83 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.time.LocalDateTime;
-import java.time.Instant;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import com.example.userauth.dao.UserQueryDao;
+import com.example.userauth.dto.AuthResponse;
+import com.example.userauth.dto.LoginRequest;
+import com.example.userauth.dto.RegisterRequest;
+import com.example.userauth.dto.UpdateUserRequest;
+import com.example.userauth.dto.UserListResponse;
+import com.example.userauth.entity.Role;
+import com.example.userauth.entity.User;
+import com.example.userauth.entity.UserRole;
+import com.example.userauth.entity.UserTenantAcl;
+import com.example.userauth.repository.RoleRepository;
+import com.example.userauth.repository.UserRepository;
+import com.example.userauth.repository.UserTenantAclRepository;
+import com.example.userauth.security.JwtUtils;
 
 @Service
 @Transactional
 public class AuthService {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
-    
+
     @Autowired
     private AuthenticationManager authenticationManager;
-    
+
     @Autowired
     private UserRepository userRepository;
-    
+
     @Autowired
     private RoleRepository roleRepository;
-    
+
     @Autowired
     private UserTenantAclRepository userTenantAclRepository;
-    
+
     @Autowired
     private UserQueryDao userQueryDao;
-    
+
     @Autowired
     private PasswordEncoder passwordEncoder;
-    
+
     @Autowired
     private JwtUtils jwtUtils;
 
     @Autowired
     private TokenBlacklistService tokenBlacklistService;
-    
+
     public AuthResponse login(LoginRequest loginRequest) {
         logger.info("Attempting login for user: {}", loginRequest.getUsername());
-        
+
         Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(
-                loginRequest.getUsername(), 
-                loginRequest.getPassword())
-        );
-        
+                new UsernamePasswordAuthenticationToken(
+                        loginRequest.getUsername(),
+                        loginRequest.getPassword()));
+
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        
+
         User user = (User) authentication.getPrincipal();
-        
-        // Generate JWT token with user's current permission version (auto-sourced from User entity)
+
+        // Generate JWT token with user's current permission version (auto-sourced from
+        // User entity)
         String jwt = jwtUtils.generateJwtToken(authentication);
-        
+
         // Update last login
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
-        
+
         logger.info("User {} logged in successfully", user.getUsername());
-        
+
         return new AuthResponse(
-            jwt,
-            user.getId(),
-            user.getUsername(),
-            user.getEmail(),
-            user.getFullName(),
-            user.getRole(),
-            jwtUtils.getTokenId(jwt),
-            user.getPermissionVersion(),
-            jwtUtils.getExpirationInstant(jwt)
-        );
+                jwt,
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getRole(),
+                jwtUtils.getTokenId(jwt),
+                user.getPermissionVersion(),
+                jwtUtils.getExpirationInstant(jwt));
     }
 
     public void logout(String rawToken) {
@@ -126,78 +126,75 @@ public class AuthService {
         SecurityContextHolder.clearContext();
         logger.info("Token {} revoked successfully for logout", tokenId);
     }
-    
+
     public AuthResponse register(RegisterRequest registerRequest) {
         logger.info("Attempting registration for user: {}", registerRequest.getUsername());
-        
+
         if (userRepository.existsByUsername(registerRequest.getUsername())) {
             throw new RuntimeException("Error: Username is already taken!");
         }
-        
+
         if (userRepository.existsByEmail(registerRequest.getEmail())) {
             throw new RuntimeException("Error: Email is already in use!");
         }
-        
+
         // Validate board_id is provided
         if (!StringUtils.hasText(registerRequest.getBoardId())) {
             throw new RuntimeException("Error: Board ID is required for registration!");
         }
-        
+
         // Create new user account with default permission version 1
         User user = new User(
-            registerRequest.getUsername(),
-            registerRequest.getEmail(),
-            passwordEncoder.encode(registerRequest.getPassword()),
-            registerRequest.getFullName(),
-            registerRequest.getRole() != null ? registerRequest.getRole() : UserRole.WORKER
-        );
-        
+                registerRequest.getUsername(),
+                registerRequest.getEmail(),
+                passwordEncoder.encode(registerRequest.getPassword()),
+                registerRequest.getFullName(),
+                registerRequest.getRole() != null ? registerRequest.getRole() : UserRole.WORKER);
+
         userRepository.save(user);
-        
+
         logger.info("User {} registered successfully", user.getUsername());
-        
+
         // Create ACL entry for the user with board_id and employer_id mapping
         UserTenantAcl userTenantAcl = new UserTenantAcl();
         userTenantAcl.setUserId(user.getId());
         userTenantAcl.setBoardId(registerRequest.getBoardId());
         userTenantAcl.setEmployerId(registerRequest.getEmployerId());
-        
+
         // Set permissions based on user role
         userTenantAcl.setCanRead(true);
         userTenantAcl.setCanWrite(
-            user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.EMPLOYER
-        );
-        
+                user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.EMPLOYER);
+
         userTenantAclRepository.save(userTenantAcl);
-        
-        logger.info("Created user_tenant_acl entry for user {} with read={}, write={}", 
-            user.getId(), 
-            userTenantAcl.getCanRead(), 
-            userTenantAcl.getCanWrite());
-        
+
+        logger.info("Created user_tenant_acl entry for user {} with read={}, write={}",
+                user.getId(),
+                userTenantAcl.getCanRead(),
+                userTenantAcl.getCanWrite());
+
         // Auto-login after registration
         Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(
-                registerRequest.getUsername(), 
-                registerRequest.getPassword())
-        );
-        
-        // Generate JWT token with user's permission version (auto-sourced from User entity)
+                new UsernamePasswordAuthenticationToken(
+                        registerRequest.getUsername(),
+                        registerRequest.getPassword()));
+
+        // Generate JWT token with user's permission version (auto-sourced from User
+        // entity)
         String jwt = jwtUtils.generateJwtToken(authentication);
-        
+
         return new AuthResponse(
-            jwt,
-            user.getId(),
-            user.getUsername(),
-            user.getEmail(),
-            user.getFullName(),
-            user.getRole(),
-            jwtUtils.getTokenId(jwt),
-            user.getPermissionVersion(),
-            jwtUtils.getExpirationInstant(jwt)
-        );
+                jwt,
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getRole(),
+                jwtUtils.getTokenId(jwt),
+                user.getPermissionVersion(),
+                jwtUtils.getExpirationInstant(jwt));
     }
-    
+
     public Optional<User> getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof User) {
@@ -205,14 +202,14 @@ public class AuthService {
         }
         return Optional.empty();
     }
-    
+
     // READ OPERATIONS - Using jOOQ query DAO for richer projections
     @Transactional(readOnly = true)
     public List<UserQueryDao.UserWithDetails> getAllUsers() {
         logger.debug("Fetching all users with roles and policies via query DAO");
         return userQueryDao.findAllWithDetails();
     }
-    
+
     @Transactional(readOnly = true)
     public List<UserQueryDao.UserWithDetails> getUsersByRole(UserRole role) {
         logger.debug("Fetching users by legacy role: {}", role);
@@ -224,22 +221,22 @@ public class AuthService {
         logger.debug("Fetching users by role name: {} via query DAO", roleName);
         return userQueryDao.findByRoleNameWithDetails(roleName);
     }
-    
+
     @Transactional(readOnly = true)
     public List<User> getActiveUsers() {
         logger.debug("Fetching active users using query DAO");
         return userQueryDao.findActiveUsers();
     }
-    
+
     @Transactional(readOnly = true)
     public List<User> searchUsers(String searchTerm) {
         logger.debug("Searching users with term: {} using query DAO", searchTerm);
         return userQueryDao.searchUsers(searchTerm);
     }
-    
+
     public void updateUserStatus(Long userId, boolean enabled) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
         boolean previousStatus = user.isEnabled();
         user.setEnabled(enabled);
         if (previousStatus != enabled) {
@@ -248,34 +245,34 @@ public class AuthService {
         userRepository.save(user);
         logger.info("User {} status updated to: {}", user.getUsername(), enabled ? "enabled" : "disabled");
     }
-    
+
     /**
      * Update user roles or permissions and increment permission version
      * This will invalidate all existing JWT tokens for the user
      */
     public void updateUserPermissions(Long userId) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
-        
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
         user.incrementPermissionVersion();
         userRepository.save(user);
-        
+
         logger.info("User {} permissions updated", user.getUsername());
     }
 
     public RoleUpdateResult updateUserRoles(Long userId, Set<Long> roleIds) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         Set<Long> requestedRoleIds = roleIds == null
-            ? Set.of()
-            : roleIds.stream()
-                .filter(Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+                ? Set.of()
+                : roleIds.stream()
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
 
         List<Role> requestedRoles = requestedRoleIds.isEmpty()
-            ? List.of()
-            : roleRepository.findAllById(requestedRoleIds);
+                ? List.of()
+                : roleRepository.findAllById(requestedRoleIds);
 
         if (requestedRoles.size() != requestedRoleIds.size()) {
             Set<Long> foundIds = requestedRoles.stream()
@@ -334,19 +331,20 @@ public class AuthService {
 
         return new RoleUpdateResult(assignedIds, assignedNames);
     }
-    
+
     /**
      * Update user information
-     * @param userId ID of the user to update
+     * 
+     * @param userId  ID of the user to update
      * @param request Update request with new user data
      */
     @Transactional
     public User updateUser(Long userId, UpdateUserRequest request) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
-        
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+
         boolean changed = false;
-        
+
         // Update username if provided and different
         if (StringUtils.hasText(request.getUsername()) && !request.getUsername().equals(user.getUsername())) {
             // Check if username already exists
@@ -356,7 +354,7 @@ public class AuthService {
             user.setUsername(request.getUsername());
             changed = true;
         }
-        
+
         // Update email if provided and different
         if (StringUtils.hasText(request.getEmail()) && !request.getEmail().equals(user.getEmail())) {
             // Check if email already exists (using findByUsernameOrEmail)
@@ -367,13 +365,13 @@ public class AuthService {
             user.setEmail(request.getEmail());
             changed = true;
         }
-        
+
         // Update full name if provided
         if (StringUtils.hasText(request.getFullName()) && !request.getFullName().equals(user.getFullName())) {
             user.setFullName(request.getFullName());
             changed = true;
         }
-        
+
         // Update password if provided (will be hashed)
         if (StringUtils.hasText(request.getPassword())) {
             String encodedPassword = passwordEncoder.encode(request.getPassword());
@@ -382,7 +380,7 @@ public class AuthService {
             // Increment permission version to invalidate tokens when password changes
             user.incrementPermissionVersion();
         }
-        
+
         if (changed) {
             User savedUser = userRepository.save(user);
             logger.info("User {} updated successfully", user.getUsername());
@@ -392,21 +390,22 @@ public class AuthService {
             return user;
         }
     }
-    
+
     /**
      * Delete user (soft delete by disabling)
+     * 
      * @param userId ID of the user to delete
      */
     @Transactional
     public void deleteUser(Long userId) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
-        
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+
         // Soft delete by disabling the user
         user.setEnabled(false);
         user.incrementPermissionVersion(); // Invalidate all tokens
         userRepository.save(user);
-        
+
         logger.info("User {} deleted (disabled)", user.getUsername());
     }
 
@@ -424,14 +423,14 @@ public class AuthService {
         }
         return Optional.empty();
     }
-    
+
     /**
      * Get current user's permission names from authentication context
      */
     public Set<String> getCurrentUserPermissionNames() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Set<String> permissions = new HashSet<>();
-        
+
         if (authentication != null && authentication.isAuthenticated()) {
             for (org.springframework.security.core.GrantedAuthority authority : authentication.getAuthorities()) {
                 String auth = authority.getAuthority();
@@ -440,17 +439,17 @@ public class AuthService {
                 }
             }
         }
-        
+
         return permissions;
     }
-    
+
     /**
      * Get current user's role names from authentication context
      */
     public Set<String> getCurrentUserRoleNames() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Set<String> roles = new HashSet<>();
-        
+
         if (authentication != null && authentication.isAuthenticated()) {
             for (org.springframework.security.core.GrantedAuthority authority : authentication.getAuthorities()) {
                 String auth = authority.getAuthority();
@@ -459,56 +458,55 @@ public class AuthService {
                 }
             }
         }
-        
+
         return roles;
     }
-    
+
     /**
      * Convert User projections to UserListResponse DTOs.
      * This avoids Hibernate proxy serialization issues.
      */
     public List<UserListResponse> convertToUserListResponse(List<UserQueryDao.UserWithDetails> users) {
         return users.stream()
-            .map(this::convertToUserListResponse)
-            .collect(Collectors.toList());
+                .map(this::convertToUserListResponse)
+                .collect(Collectors.toList());
     }
-    
+
     /**
      * Convert a single User projection to UserListResponse DTO.
      */
     private UserListResponse convertToUserListResponse(UserQueryDao.UserWithDetails user) {
         Set<UserListResponse.RoleInfo> roleInfos = user.getRoles().stream()
-            .map(role -> {
-                Set<UserListResponse.PolicyInfo> policyInfos = role.getPolicies().stream()
-                    .map(policy -> new UserListResponse.PolicyInfo(
-                        policy.getId(),
-                        policy.getName(),
-                        policy.getDescription(),
-                        policy.getType()
-                    ))
-                    .collect(Collectors.toSet());
-                
-                return new UserListResponse.RoleInfo(
-                    role.getId(),
-                    role.getName(),
-                    role.getDescription(),
-                    policyInfos
-                );
-            })
-            .collect(Collectors.toSet());
+                .map(role -> {
+                    Set<UserListResponse.PolicyInfo> policyInfos = role.getPolicies().stream()
+                            .map(policy -> new UserListResponse.PolicyInfo(
+                                    policy.getId(),
+                                    policy.getName(),
+                                    policy.getDescription(),
+                                    policy.getType()))
+                            .collect(Collectors.toSet());
+                    return new UserListResponse.RoleInfo(
+                            role.getId(),
+                            role.getName(),
+                            role.getDescription(),
+                            policyInfos);
+                })
+                .collect(Collectors.toSet());
         return new UserListResponse(
-            user.getId(),
-            user.getUsername(),
-            user.getEmail(),
-            user.getFullName(),
-            user.getEnabled(),
-            roleInfos,
-            user.getCreatedAt(),
-            user.getLastLogin(),
-            user.getBoardId(),
-            user.getEmployerId()
-        );
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getEnabled(),
+                roleInfos,
+                user.getCreatedAt(),
+                user.getLastLogin(),
+                user.getBoardId(),
+                user.getEmployerId(),
+                user.getUserType(),
+                user.getToliId());
     }
 
-    public record RoleUpdateResult(Set<Long> roleIds, Set<String> roleNames) {}
+    public record RoleUpdateResult(Set<Long> roleIds, Set<String> roleNames) {
+    }
 }
