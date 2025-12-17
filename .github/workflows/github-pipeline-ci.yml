@@ -63,9 +63,9 @@ jobs:
           DATE="$(date -u +%Y%m%d)"
 
           if [[ "$BRANCH" == "master" ]]; then
-            TAG="prod-${DATE}-${SHORT_SHA}"
+            TAG="master-${DATE}-${SHORT_SHA}"
           elif [[ "$BRANCH" == "develop" ]]; then
-            TAG="dev-${DATE}-${SHORT_SHA}"
+            TAG="develop-${DATE}-${SHORT_SHA}"
           else
             SAFE_BRANCH=$(echo "$BRANCH" | sed 's|/|-|g')
             TAG="${SAFE_BRANCH}-${DATE}-${SHORT_SHA}"
