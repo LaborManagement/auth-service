@@ -1,6 +1,11 @@
 name: Deploy ECS Service - Auth
 
 on: 
+  push:
+    branches:
+      - develop
+    paths:
+      - '**'
   workflow_dispatch: 
     inputs:
       image_tag:
