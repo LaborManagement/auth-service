@@ -92,7 +92,7 @@ public class EnhancedSecurityConfig {
                                                 // Public endpoints
                                                 .requestMatchers(HttpMethod.POST, "/auth-service/api/auth/login",
                                                                 "/auth-service/api/auth/logout",
-                                                                "/api/me/authorizations")
+                                                                "/auth-service/api/me/authorizations")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/me/authorizations")
                                                 .permitAll()
