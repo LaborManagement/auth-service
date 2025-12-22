@@ -81,6 +81,24 @@ shared-lib:
     strict-host-key-checking: true
   filters:
     enabled: true 
+  security:
+    cors:
+      enabled: true
+      allowed-origins:
+        - http://localhost:5173
+        - http://localhost:5174
+        - https://master.d1d3zs9vbo6lnu.amplifyapp.com
+      allowed-methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+        - PATCH
+      allowed-headers:
+        - "*"
+      allow-credentials: true
+      max-age: 3600
 server:
   address: 0.0.0.0
   port: 8080
@@ -89,4 +107,3 @@ auth:
   internal:
     api-key: ${INTERNAL_API_KEY:4f0d3ac5a91b7fe246d3851c09a2f718f6c8d42704e3b89a1f2d6c7b81e4f0a3}
     api-key-header: X-Internal-Api-Key
-
