@@ -99,7 +99,9 @@ public class EnhancedSecurityConfig {
                                                 .requestMatchers("/api/auth/**")
                                                 .access(dynamicEndpointAuthorizationManager)
                                                 .requestMatchers("/api/public/**").permitAll()
-                                                .requestMatchers("/internal/auth/**", "/internal/authz/**")
+                                                .requestMatchers("/internal/auth/**", "/internal/authz/**",
+                                                                "/auth-service/internal/auth/**",
+                                                                "/auth-service/internal/authz/**")
                                                 .authenticated()
 
                                                 // Swagger/OpenAPI endpoints

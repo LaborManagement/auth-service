@@ -30,7 +30,7 @@ import java.util.Set;
  * Provides UI-friendly endpoints for assigning and managing policies for roles.
  */
 @RestController
-@RequestMapping("/api/role-policies")
+@RequestMapping("/auth-service/api/role-policies")
 @Tag(name = "Role-Policy Management", description = "Endpoints for managing role-policy assignments")
 @SecurityRequirement(name = "Bearer Authentication")
 public class RolePolicyController {

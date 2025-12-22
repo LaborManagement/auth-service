@@ -37,7 +37,7 @@ import jakarta.validation.constraints.NotBlank;
  * skip JWT.
  */
 @RestController
-@RequestMapping("/internal/authz")
+@RequestMapping("/auth-service/internal/authz")
 @Tag(name = "Internal Authorization", description = "Internal-only endpoints for downstream service authorization and policy evaluation.")
 public class InternalAuthorizationController {
 

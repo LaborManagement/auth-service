@@ -26,7 +26,12 @@ import java.util.List;
 public class InternalApiAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(InternalApiAuthenticationFilter.class);
-    private static final String[] INTERNAL_MATCHERS = {"/internal/auth/**", "/internal/authz/**"};
+    private static final String[] INTERNAL_MATCHERS = {
+            "/internal/auth/**",
+            "/internal/authz/**",
+            "/auth-service/internal/auth/**",
+            "/auth-service/internal/authz/**"
+    };
     private static final String INTERNAL_ROLE = "ROLE_INTERNAL_API_CALLER";
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();

@@ -45,7 +45,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * Only accessible by ADMIN role
  */
 @RestController
-@RequestMapping("/api/admin/endpoints")
+@RequestMapping("/auth-service/api/admin/endpoints")
 @SecurityRequirement(name = "Bearer Authentication")
 @Tag(name = "Endpoint Management", description = "Admin APIs for managing endpoints and their policy assignments.")
 public class EndpointController {

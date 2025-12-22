@@ -39,7 +39,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
-@RequestMapping("/api/admin/ui-pages")
+@RequestMapping("/auth-service/api/admin/ui-pages")
 @SecurityRequirement(name = "Bearer Authentication")
 @Tag(name = "UI Page Management", description = "Admin APIs for managing UI pages and navigation hierarchy.")
 public class UIPageController {
