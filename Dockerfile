@@ -66,7 +66,7 @@ RUN chown appuser:appgroup app.jar
 USER appuser
 
 # Environment variables with defaults
-ENV SPRING_PROFILES_ACTIVE=dev
+ENV SPRING_PROFILES_ACTIVE=prod
 ENV SERVER_PORT=8080
 
 # JVM options for container environment
