@@ -1,10 +1,7 @@
 # ============================================
-# Dockerfile for auth-service (Multi-stage build)
+# Dockerfile for user-auth-service (Multi-stage build)
 # Supports: dev, staging, prod environments
 # Compatible with ARM64 (Apple Silicon) and AMD64
-# ============================================
-# For CI/CD: docker build -t auth-service:latest .
-# For local: docker build -t auth-service:latest .
 # ============================================
 
 # ==================== STAGE 1: Build ====================
