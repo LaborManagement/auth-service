@@ -27,7 +27,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * Provides user authorizations and service metadata
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/auth-service/api")
 @Tag(name = "Authorization", description = "Authorization and Service Catalog APIs")
 @SecurityRequirement(name = "Bearer Authentication")
 public class AuthorizationController {

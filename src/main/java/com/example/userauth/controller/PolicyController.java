@@ -50,7 +50,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * Only accessible by ADMIN role
  */
 @RestController
-@RequestMapping("/api/admin/policies")
+@RequestMapping("/auth-service/api/admin/policies")
 @SecurityRequirement(name = "Bearer Authentication")
 @Tag(name = "Policy Management", description = "Admin APIs for managing policies and their role assignments.")
 public class PolicyController {

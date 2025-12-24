@@ -50,7 +50,7 @@ import jakarta.validation.Valid;
  * Controller for authentication and user management
  */
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/auth-service/api/auth")
 @Tag(name = "Authentication", description = "User authentication and registration APIs")
 @SecurityRequirement(name = "Bearer Authentication")
 public class AuthController {

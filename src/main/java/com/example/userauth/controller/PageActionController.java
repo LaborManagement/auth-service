@@ -36,7 +36,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
  * Only accessible by ADMIN role
  */
 @RestController
-@RequestMapping("/api/admin/page-actions")
+@RequestMapping("/auth-service/api/admin/page-actions")
 @SecurityRequirement(name = "Bearer Authentication")
 @Tag(name = "Page Action Management", description = "Admin APIs for managing UI page actions.")
 public class PageActionController {

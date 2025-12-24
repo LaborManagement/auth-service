@@ -76,7 +76,6 @@ shared-lib:
     strict-host-key-checking: ${SFTP_STRICT_HOST_KEY_CHECKING:true}
   filters:
     enabled: true
-
   security:
     cors:
       enabled: true

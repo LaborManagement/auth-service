@@ -24,7 +24,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/internal/auth")
+@RequestMapping("/auth-service/internal/auth")
 @Tag(name = "Internal Auth", description = "Internal API for token introspection (service-to-service)")
 public class InternalAuthController {
 

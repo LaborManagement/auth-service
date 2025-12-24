@@ -35,7 +35,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * Admin controller for managing roles
  */
 @RestController
-@RequestMapping("/api/admin/roles")
+@RequestMapping("/auth-service/api/admin/roles")
 @Tag(name = "Role Management", description = "APIs for managing roles")
 @SecurityRequirement(name = "Bearer Authentication")
 public class RoleController {
