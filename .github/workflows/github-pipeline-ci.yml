@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # Set environment based on branch or manual input
-    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod') || 'dev' }}
+    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/master' && 'prod') || 'dev' }}
 
     permissions:
       id-token: write # Required for OIDC authentication
