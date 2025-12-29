@@ -87,6 +87,8 @@ shared-lib:
       allowed-origins:
         - http://localhost:5173
         - http://localhost:5174
+        - http://localhost:80
+        - http://ec2-13-203-201-93.ap-south-1.compute.amazonaws.com
         - https://master.d1d3zs9vbo6lnu.amplifyapp.com
       allowed-methods:
         - GET
