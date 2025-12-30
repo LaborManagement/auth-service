@@ -77,7 +77,7 @@ ENV JAVA_OPTS="-XX:+UseContainerSupport \
     -XX:+UseG1GC \
     -XX:+HeapDumpOnOutOfMemoryError \
     -XX:HeapDumpPath=/app/logs/heapdump.hprof \
-    -Djava.security.egd=file:/dev/./urandom"
+    -Djava.security.egd=file:/prod/./urandom"
 
 # Expose the application port
 EXPOSE 8080
