@@ -10,19 +10,19 @@ spring:
     # HikariCP connection pooling configuration
     # CRITICAL: These settings ensure transaction-local RLS context persists
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-      idle-timeout: 0               # keep connections warm when tunneling to RDS
-      max-lifetime: 1700000         # recycle a bit under 30 minutes
-      connection-timeout: 30000     # 30 seconds
+      maximum-pool-size: 8          # right-size for db.t4g.micro; leaves headroom for other services
+      minimum-idle: 2               # avoid hoarding idle slots while keeping warm pool
+      idle-timeout: 60000           # drop idle connections after 60s
+      max-lifetime: 600000          # 10 minutes; recycle before RDS reaps
+      connection-timeout: 20000     # wait a bit for a slot before failing
       auto-commit: true             # Important: allows transaction-local settings
-      leak-detection-threshold: 60000  # 1 minute
+      leak-detection-threshold: 30000  # 30s; enable only while hunting leaks
       data-source-properties:
         preparedStatementCacheQueries: 256
         preparedStatementCacheSizeMiB: 5
         reWriteBatchedInserts: true
         tcpKeepAlive: true
-      keepalive-time: 300000        # ping every 5 minutes to avoid idle drops
+      keepalive-time: 30000         # ping occasionally so RDS doesn't reap early
   jpa:
     hibernate:
       ddl-auto: none
@@ -35,8 +35,8 @@ spring:
 
 logging:
   level:
-    "[com.example.userauth]": DEBUG
-    "[com.shared.entityaudit]": DEBUG
+    "[com.example.userauth]": WARN
+    "[com.shared.entityaudit]": INFO
     "[org.hibernate.SQL]": ${LOG_SQL_LEVEL:WARN}
     "[org.hibernate.type.descriptor.sql.BasicBinder]": ${LOG_SQL_BINDER_LEVEL:WARN}
   file:
