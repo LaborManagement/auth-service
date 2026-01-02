@@ -49,6 +49,16 @@ public interface RolePolicyRepository extends JpaRepository<RolePolicy, Long> {
     Optional<RolePolicy> findByRoleIdAndPolicyIdAndIsActiveTrue(Long roleId, Long policyId);
 
     /**
+     * Fetch active policies for a role with the policy initialized
+     */
+    @Query("SELECT p FROM RolePolicy rp " +
+           "JOIN rp.policy p " +
+           "WHERE rp.role.id = :roleId " +
+           "AND rp.isActive = true " +
+           "AND p.isActive = true")
+    List<Policy> findActivePoliciesByRoleId(@Param("roleId") Long roleId);
+
+    /**
      * Find all policies assigned to a role by role name
      */
     @Query("SELECT rp.policy FROM RolePolicy rp " +

@@ -149,9 +149,7 @@ public class RolePolicyService {
      */
     @Transactional(readOnly = true)
     public List<Policy> getPoliciesForRole(Long roleId) {
-        return rolePolicyRepository.findByRoleIdAndIsActiveTrue(roleId).stream()
-                .map(RolePolicy::getPolicy)
-                .collect(Collectors.toList());
+        return rolePolicyRepository.findActivePoliciesByRoleId(roleId);
     }
 
     /**
