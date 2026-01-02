@@ -24,22 +24,22 @@ public interface UserTenantAclRepository extends JpaRepository<UserTenantAcl, Lo
     /**
      * Find ACL record for a user accessing a specific board and employer.
      */
-    Optional<UserTenantAcl> findByUserIdAndBoardIdAndEmployerId(Long userId, String boardId, String employerId);
+    Optional<UserTenantAcl> findByUserIdAndBoardIdAndEmployerId(Long userId, Long boardId, Long employerId);
     
     /**
      * Find all ACL records for a specific board.
      */
-    List<UserTenantAcl> findByBoardId(String boardId);
+    List<UserTenantAcl> findByBoardId(Long boardId);
     
     /**
      * Find all ACL records for a specific employer.
      */
-    List<UserTenantAcl> findByEmployerId(String employerId);
+    List<UserTenantAcl> findByEmployerId(Long employerId);
     
     /**
      * Find all ACL records for a user accessing a specific board (any employer).
      */
-    List<UserTenantAcl> findByUserIdAndBoardId(Long userId, String boardId);
+    List<UserTenantAcl> findByUserIdAndBoardId(Long userId, Long boardId);
     
     /**
      * Delete all ACL records for a user.
@@ -51,16 +51,16 @@ public interface UserTenantAclRepository extends JpaRepository<UserTenantAcl, Lo
      */
     @Query("SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END " +
            "FROM UserTenantAcl a WHERE a.userId = :userId AND a.boardId = :boardId " +
-           "AND (a.employerId = :employerId OR a.employerId IS NULL) AND a.canRead = true")
-    boolean hasReadAccess(@Param("userId") Long userId, @Param("boardId") String boardId, @Param("employerId") String employerId);
+           "AND ((:employerId IS NULL AND a.employerId IS NULL) OR a.employerId = :employerId OR a.employerId IS NULL) AND a.canRead = true")
+    boolean hasReadAccess(@Param("userId") Long userId, @Param("boardId") Long boardId, @Param("employerId") Long employerId);
     
     /**
      * Check if user has write access to a board/employer combination.
      */
     @Query("SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END " +
            "FROM UserTenantAcl a WHERE a.userId = :userId AND a.boardId = :boardId " +
-           "AND (a.employerId = :employerId OR a.employerId IS NULL) AND a.canWrite = true")
-    boolean hasWriteAccess(@Param("userId") Long userId, @Param("boardId") String boardId, @Param("employerId") String employerId);
+           "AND ((:employerId IS NULL AND a.employerId IS NULL) OR a.employerId = :employerId OR a.employerId IS NULL) AND a.canWrite = true")
+    boolean hasWriteAccess(@Param("userId") Long userId, @Param("boardId") Long boardId, @Param("employerId") Long employerId);
     
     /**
      * Count total ACL records for a user.

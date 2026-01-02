@@ -28,6 +28,7 @@ import com.example.userauth.dto.LoginRequest;
 import com.example.userauth.dto.RegisterRequest;
 import com.example.userauth.dto.UpdateUserRequest;
 import com.example.userauth.dto.UserListResponse;
+import com.example.userauth.entity.AuthLevel;
 import com.example.userauth.entity.Role;
 import com.example.userauth.entity.User;
 import com.example.userauth.entity.UserRole;
@@ -143,6 +144,15 @@ public class AuthService {
             throw new RuntimeException("Error: Board ID is required for registration!");
         }
 
+        if (!StringUtils.hasText(registerRequest.getToliId())) {
+            throw new RuntimeException("Error: Toli ID is required for registration!");
+        }
+
+        if (!StringUtils.hasText(registerRequest.getUserType())) {
+            throw new RuntimeException("Error: User type is required for registration!");
+        }
+        String normalizedUserType = registerRequest.getUserType().trim().toUpperCase();
+
         // Create new user account with default permission version 1
         User user = new User(
                 registerRequest.getUsername(),
@@ -151,15 +161,35 @@ public class AuthService {
                 registerRequest.getFullName(),
                 registerRequest.getRole() != null ? registerRequest.getRole() : UserRole.WORKER);
 
+        user.setUserType(normalizedUserType);
+        user.setAuthLevel(registerRequest.getAuthLevel() != null ? registerRequest.getAuthLevel() : AuthLevel.NONE);
+        if (registerRequest.getEnabled() != null) {
+            user.setEnabled(registerRequest.getEnabled());
+        }
+        if (registerRequest.getAccountNonExpired() != null) {
+            user.setAccountNonExpired(registerRequest.getAccountNonExpired());
+        }
+        if (registerRequest.getAccountNonLocked() != null) {
+            user.setAccountNonLocked(registerRequest.getAccountNonLocked());
+        }
+        if (registerRequest.getCredentialsNonExpired() != null) {
+            user.setCredentialsNonExpired(registerRequest.getCredentialsNonExpired());
+        }
+
         userRepository.save(user);
 
         logger.info("User {} registered successfully", user.getUsername());
 
         // Create ACL entry for the user with board_id and employer_id mapping
+        Long boardId = parseRequiredLong(registerRequest.getBoardId(), "boardId");
+        Long employerId = parseOptionalLong(registerRequest.getEmployerId(), "employerId");
+        Long toliId = parseRequiredLong(registerRequest.getToliId(), "toliId");
+
         UserTenantAcl userTenantAcl = new UserTenantAcl();
         userTenantAcl.setUserId(user.getId());
-        userTenantAcl.setBoardId(registerRequest.getBoardId());
-        userTenantAcl.setEmployerId(registerRequest.getEmployerId());
+        userTenantAcl.setBoardId(boardId);
+        userTenantAcl.setEmployerId(employerId);
+        userTenantAcl.setToliId(toliId);
 
         // Set permissions based on user role
         userTenantAcl.setCanRead(true);
@@ -501,10 +531,33 @@ public class AuthService {
                 roleInfos,
                 user.getCreatedAt(),
                 user.getLastLogin(),
-                user.getBoardId(),
-                user.getEmployerId(),
+                user.getBoardId() != null ? user.getBoardId().toString() : null,
+                user.getEmployerId() != null ? user.getEmployerId().toString() : null,
                 user.getUserType(),
-                user.getToliId());
+                user.getToliId() != null ? user.getToliId().toString() : null,
+                user.getAuthLevel());
+    }
+
+    private Long parseRequiredLong(String value, String fieldName) {
+        if (!StringUtils.hasText(value)) {
+            throw new RuntimeException("Error: " + fieldName + " is required for registration!");
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException ex) {
+            throw new RuntimeException("Error: " + fieldName + " must be a valid number");
+        }
+    }
+
+    private Long parseOptionalLong(String value, String fieldName) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException ex) {
+            throw new RuntimeException("Error: " + fieldName + " must be a valid number");
+        }
     }
 
     public record RoleUpdateResult(Set<Long> roleIds, Set<String> roleNames) {

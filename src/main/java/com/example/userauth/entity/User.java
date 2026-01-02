@@ -110,6 +110,10 @@ public class User extends AbstractAuditableEntity<Long> implements UserDetails {
     @Column(name = "user_type")
     private String userType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_level")
+    private AuthLevel authLevel = AuthLevel.NONE;
+
     // Constructors
     public User() {
         this.createdAt = LocalDateTime.now();
@@ -179,6 +183,14 @@ public class User extends AbstractAuditableEntity<Long> implements UserDetails {
 
     public void setUserType(String userType) {
         this.userType = userType;
+    }
+
+    public AuthLevel getAuthLevel() {
+        return authLevel;
+    }
+
+    public void setAuthLevel(AuthLevel authLevel) {
+        this.authLevel = authLevel;
     }
 
     public Long getId() {
@@ -325,6 +337,7 @@ public class User extends AbstractAuditableEntity<Long> implements UserDetails {
                         .filter(Objects::nonNull)
                         .collect(Collectors.toList()),
                 "permissionVersion", permissionVersion,
+                "authLevel", authLevel != null ? authLevel.name() : null,
                 "enabled", enabled,
                 "accountNonExpired", accountNonExpired,
                 "accountNonLocked", accountNonLocked,

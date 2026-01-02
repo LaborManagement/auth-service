@@ -41,6 +41,7 @@ public class UserQueryDao {
     private static final Field<String> U_FULL_NAME = DSL.field(DSL.name("u", "full_name"), String.class);
     private static final Field<String> U_ROLE = DSL.field(DSL.name("u", "role"), String.class);
     private static final Field<String> U_USER_TYPE = DSL.field(DSL.name("u", "user_type"), String.class);
+    private static final Field<String> U_AUTH_LEVEL = DSL.field(DSL.name("u", "auth_level"), String.class);
     private static final Field<Boolean> U_IS_ENABLED = DSL.field(DSL.name("u", "is_enabled"), Boolean.class);
     private static final Field<LocalDateTime> U_CREATED_AT = DSL.field(DSL.name("u", "created_at"),
             LocalDateTime.class);
@@ -71,9 +72,9 @@ public class UserQueryDao {
     private static final Field<Boolean> P_IS_ACTIVE = DSL.field(DSL.name("p", "is_active"), Boolean.class);
 
     private static final Field<Long> UTA_USER_ID = DSL.field(DSL.name("uta", "user_id"), Long.class);
-    private static final Field<String> UTA_BOARD_ID = DSL.field(DSL.name("uta", "board_id"), String.class);
-    private static final Field<String> UTA_EMPLOYER_ID = DSL.field(DSL.name("uta", "employer_id"), String.class);
-    private static final Field<String> UTA_TOLI_ID = DSL.field(DSL.name("uta", "toli_id"), String.class);
+    private static final Field<Long> UTA_BOARD_ID = DSL.field(DSL.name("uta", "board_id"), Long.class);
+    private static final Field<Long> UTA_EMPLOYER_ID = DSL.field(DSL.name("uta", "employer_id"), Long.class);
+    private static final Field<Long> UTA_TOLI_ID = DSL.field(DSL.name("uta", "toli_id"), Long.class);
 
     private static final Field<Long> MULTI_ROLE_USER_ID = DSL.field(DSL.name("multi_role", "user_id"), Long.class);
 
@@ -257,6 +258,7 @@ public class UserQueryDao {
                 U_FULL_NAME,
                 U_ROLE,
                 U_USER_TYPE,
+                U_AUTH_LEVEL,
                 U_IS_ENABLED,
                 U_CREATED_AT,
                 U_UPDATED_AT,
@@ -297,6 +299,7 @@ public class UserQueryDao {
                 dto.setEmail(record.get(U_EMAIL));
                 dto.setFullName(record.get(U_FULL_NAME));
                 dto.setUserType(record.get(U_USER_TYPE));
+                dto.setAuthLevel(record.get(U_AUTH_LEVEL));
                 dto.setEnabled(record.get(U_IS_ENABLED));
                 dto.setCreatedAt(record.get(U_CREATED_AT));
                 dto.setUpdatedAt(record.get(U_UPDATED_AT));
@@ -314,21 +317,21 @@ public class UserQueryDao {
             });
 
             if (user.getBoardId() == null) {
-                String boardId = record.get(UTA_BOARD_ID);
+                Long boardId = record.get(UTA_BOARD_ID);
                 if (boardId != null) {
                     user.setBoardId(boardId);
                 }
             }
 
             if (user.getEmployerId() == null) {
-                String employerId = record.get(UTA_EMPLOYER_ID);
+                Long employerId = record.get(UTA_EMPLOYER_ID);
                 if (employerId != null) {
                     user.setEmployerId(employerId);
                 }
             }
 
             if (user.getToliId() == null) {
-                String toliId = record.get(UTA_TOLI_ID);
+                Long toliId = record.get(UTA_TOLI_ID);
                 if (toliId != null) {
                     user.setToliId(toliId);
                 }
@@ -398,22 +401,15 @@ public class UserQueryDao {
         private String email;
         private String fullName;
         private String userType;
+        private String authLevel;
         private UserRole primaryRole;
         private Boolean enabled;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
         private LocalDateTime lastLogin;
-        private String boardId;
-        private String employerId;
-        private String toliId;
-
-        public String getToliId() {
-            return toliId;
-        }
-
-        public void setToliId(String toliId) {
-            this.toliId = toliId;
-        }
+        private Long boardId;
+        private Long employerId;
+        private Long toliId;
 
         private final Set<RoleWithPolicies> roles = new LinkedHashSet<>();
 
@@ -423,6 +419,14 @@ public class UserQueryDao {
 
         public void setUserType(String userType) {
             this.userType = userType;
+        }
+
+        public String getAuthLevel() {
+            return authLevel;
+        }
+
+        public void setAuthLevel(String authLevel) {
+            this.authLevel = authLevel;
         }
 
         public Long getId() {
@@ -497,20 +501,28 @@ public class UserQueryDao {
             this.lastLogin = lastLogin;
         }
 
-        public String getBoardId() {
+        public Long getBoardId() {
             return boardId;
         }
 
-        public void setBoardId(String boardId) {
+        public void setBoardId(Long boardId) {
             this.boardId = boardId;
         }
 
-        public String getEmployerId() {
+        public Long getEmployerId() {
             return employerId;
         }
 
-        public void setEmployerId(String employerId) {
+        public void setEmployerId(Long employerId) {
             this.employerId = employerId;
+        }
+
+        public Long getToliId() {
+            return toliId;
+        }
+
+        public void setToliId(Long toliId) {
+            this.toliId = toliId;
         }
 
         public Set<RoleWithPolicies> getRoles() {
