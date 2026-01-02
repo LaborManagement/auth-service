@@ -1,9 +1,12 @@
 package com.example.userauth.dto;
 
+import com.example.userauth.entity.AuthLevel;
+import com.example.userauth.entity.UserRole;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import com.example.userauth.entity.UserRole;
 
 public class RegisterRequest {
     
@@ -30,6 +33,25 @@ public class RegisterRequest {
     
     @Size(max = 64, message = "Employer ID must be at most 64 characters")
     private String employerId;
+
+    @NotBlank(message = "Toli ID is required")
+    @Size(min = 1, max = 64, message = "Toli ID must be between 1 and 64 characters")
+    private String toliId;
+
+    @NotBlank(message = "User type is required")
+    @Pattern(regexp = "EMPLOYEE|EMPLOYER|BOARD|ADMIN", flags = Pattern.Flag.CASE_INSENSITIVE, message = "Invalid user type")
+    private String userType;
+
+    private AuthLevel authLevel = AuthLevel.NONE;
+
+    @JsonAlias({ "isActive", "enabled" })
+    private Boolean enabled;
+
+    private Boolean accountNonExpired;
+
+    private Boolean accountNonLocked;
+
+    private Boolean credentialsNonExpired;
     
     // Constructors
     public RegisterRequest() {}
@@ -107,5 +129,61 @@ public class RegisterRequest {
     
     public void setEmployerId(String employerId) {
         this.employerId = employerId;
+    }
+
+    public String getToliId() {
+        return toliId;
+    }
+
+    public void setToliId(String toliId) {
+        this.toliId = toliId;
+    }
+
+    public String getUserType() {
+        return userType;
+    }
+
+    public void setUserType(String userType) {
+        this.userType = userType;
+    }
+
+    public AuthLevel getAuthLevel() {
+        return authLevel;
+    }
+
+    public void setAuthLevel(AuthLevel authLevel) {
+        this.authLevel = authLevel;
+    }
+
+    public Boolean getEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(Boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public Boolean getAccountNonExpired() {
+        return accountNonExpired;
+    }
+
+    public void setAccountNonExpired(Boolean accountNonExpired) {
+        this.accountNonExpired = accountNonExpired;
+    }
+
+    public Boolean getAccountNonLocked() {
+        return accountNonLocked;
+    }
+
+    public void setAccountNonLocked(Boolean accountNonLocked) {
+        this.accountNonLocked = accountNonLocked;
+    }
+
+    public Boolean getCredentialsNonExpired() {
+        return credentialsNonExpired;
+    }
+
+    public void setCredentialsNonExpired(Boolean credentialsNonExpired) {
+        this.credentialsNonExpired = credentialsNonExpired;
     }
 }

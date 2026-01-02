@@ -17,8 +17,8 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(name = "user_tenant_acl", schema = "auth", uniqueConstraints = @UniqueConstraint(columnNames = { "user_id",
-        "board_id", "employer_id" }))
+@Table(name = "user_tenant_acl", schema = "auth", uniqueConstraints = @UniqueConstraint(columnNames = {
+        "user_id", "board_id", "employer_id", "toli_id" }))
 public class UserTenantAcl {
 
     @Id
@@ -28,11 +28,11 @@ public class UserTenantAcl {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "board_id", nullable = false, length = 64)
-    private String boardId;
+    @Column(name = "board_id", nullable = false)
+    private Long boardId;
 
-    @Column(name = "employer_id", length = 64)
-    private String employerId;
+    @Column(name = "employer_id")
+    private Long employerId;
 
     @Column(name = "can_read", nullable = false)
     private Boolean canRead = true;
@@ -40,8 +40,8 @@ public class UserTenantAcl {
     @Column(name = "can_write", nullable = false)
     private Boolean canWrite = false;
 
-    @Column(name = "toli_id", length = 64)
-    private String toliId;
+    @Column(name = "toli_id")
+    private Long toliId;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -55,14 +55,14 @@ public class UserTenantAcl {
         this.updatedAt = Instant.now();
     }
 
-    public UserTenantAcl(Long userId, String boardId, String employerId) {
+    public UserTenantAcl(Long userId, Long boardId, Long employerId) {
         this();
         this.userId = userId;
         this.boardId = boardId;
         this.employerId = employerId;
     }
 
-    public UserTenantAcl(Long userId, String boardId, String employerId, Boolean canRead, Boolean canWrite) {
+    public UserTenantAcl(Long userId, Long boardId, Long employerId, Boolean canRead, Boolean canWrite) {
         this();
         this.userId = userId;
         this.boardId = boardId;
@@ -72,11 +72,11 @@ public class UserTenantAcl {
     }
 
     // Getters and Setters
-    public String getToliId() {
+    public Long getToliId() {
         return toliId;
     }
 
-    public void setToliId(String toliId) {
+    public void setToliId(Long toliId) {
         this.toliId = toliId;
     }
 
@@ -96,19 +96,19 @@ public class UserTenantAcl {
         this.userId = userId;
     }
 
-    public String getBoardId() {
+    public Long getBoardId() {
         return boardId;
     }
 
-    public void setBoardId(String boardId) {
+    public void setBoardId(Long boardId) {
         this.boardId = boardId;
     }
 
-    public String getEmployerId() {
+    public Long getEmployerId() {
         return employerId;
     }
 
-    public void setEmployerId(String employerId) {
+    public void setEmployerId(Long employerId) {
         this.employerId = employerId;
     }
 

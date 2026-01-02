@@ -20,6 +20,7 @@ public class UserListResponse {
     private String employerId;
     private String userType;
     private String toliId;
+    private String authLevel;
 
     public UserListResponse() {
     }
@@ -27,7 +28,7 @@ public class UserListResponse {
     public UserListResponse(Long id, String username, String email, String fullName,
             Boolean isActive, Set<RoleInfo> roles,
             LocalDateTime createdAt, LocalDateTime lastLogin,
-            String boardId, String employerId, String userType, String toliId) {
+            String boardId, String employerId, String userType, String toliId, String authLevel) {
         this.id = id;
         this.username = username;
         this.email = email;
@@ -40,6 +41,7 @@ public class UserListResponse {
         this.employerId = employerId;
         this.userType = userType;
         this.toliId = toliId;
+        this.authLevel = authLevel;
     }
 
     public String getToliId() {
@@ -56,6 +58,14 @@ public class UserListResponse {
 
     public void setUserType(String userType) {
         this.userType = userType;
+    }
+
+    public String getAuthLevel() {
+        return authLevel;
+    }
+
+    public void setAuthLevel(String authLevel) {
+        this.authLevel = authLevel;
     }
 
     public String getBoardId() {
