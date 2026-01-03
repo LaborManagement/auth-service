@@ -153,13 +153,15 @@ public class AuthService {
         }
         String normalizedUserType = registerRequest.getUserType().trim().toUpperCase();
 
+        UserRole userRole = registerRequest.getRole() != null ? registerRequest.getRole() : UserRole.WORKER;
+
         // Create new user account with default permission version 1
         User user = new User(
                 registerRequest.getUsername(),
                 registerRequest.getEmail(),
                 passwordEncoder.encode(registerRequest.getPassword()),
                 registerRequest.getFullName(),
-                registerRequest.getRole() != null ? registerRequest.getRole() : UserRole.WORKER);
+                userRole);
 
         user.setUserType(normalizedUserType);
         user.setAuthLevel(registerRequest.getAuthLevel() != null ? registerRequest.getAuthLevel() : AuthLevel.NONE);
@@ -191,10 +193,18 @@ public class AuthService {
         userTenantAcl.setEmployerId(employerId);
         userTenantAcl.setToliId(toliId);
 
-        // Set permissions based on user role
-        userTenantAcl.setCanRead(true);
-        userTenantAcl.setCanWrite(
-                user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.EMPLOYER);
+        boolean canRead = registerRequest.getCanRead() != null ? registerRequest.getCanRead() : true;
+        boolean canWrite = registerRequest.getCanWrite() != null
+                ? registerRequest.getCanWrite()
+                : (userRole == UserRole.ADMIN || userRole == UserRole.EMPLOYER);
+
+        // Write implies read; avoid inconsistent ACL rows
+        if (canWrite && !canRead) {
+            canRead = true;
+        }
+
+        userTenantAcl.setCanRead(canRead);
+        userTenantAcl.setCanWrite(canWrite);
 
         userTenantAclRepository.save(userTenantAcl);
 
