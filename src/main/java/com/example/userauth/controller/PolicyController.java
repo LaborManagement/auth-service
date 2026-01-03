@@ -5,8 +5,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -26,14 +26,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.userauth.entity.Endpoint;
-import com.example.userauth.entity.EndpointPolicy;
 import com.example.userauth.entity.Policy;
-import com.example.userauth.entity.Role;
-import com.example.userauth.repository.EndpointPolicyRepository;
+import com.example.userauth.entity.EndpointPolicy;
 import com.example.userauth.repository.EndpointRepository;
 import com.example.userauth.repository.PolicyRepository;
 import com.example.userauth.repository.RolePolicyRepository;
-import com.example.userauth.repository.RoleRepository;
+import com.example.userauth.repository.EndpointPolicyRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shared.common.annotation.Auditable;
 import com.shared.common.util.ETagUtil;
@@ -62,30 +60,27 @@ public class PolicyController {
 
     private final PolicyRepository policyRepository;
     private final EndpointRepository endpointRepository;
-    private final RoleRepository roleRepository;
     private final RolePolicyRepository rolePolicyRepository;
     private final EndpointPolicyRepository endpointPolicyRepository;
 
     public PolicyController(
             PolicyRepository policyRepository,
             EndpointRepository endpointRepository,
-            RoleRepository roleRepository,
             RolePolicyRepository rolePolicyRepository,
             EndpointPolicyRepository endpointPolicyRepository) {
         this.policyRepository = policyRepository;
         this.endpointRepository = endpointRepository;
-        this.roleRepository = roleRepository;
         this.rolePolicyRepository = rolePolicyRepository;
         this.endpointPolicyRepository = endpointPolicyRepository;
     }
 
     /**
-     * Get all policies with their assigned roles
+     * Get all policies without role/endpoint assignments
      */
     @Auditable(action = "GET_ALL_POLICIES", resourceType = "POLICY")
     @GetMapping
     @Transactional(readOnly = true)
-    @Operation(summary = "Get all policies", description = "Returns all policies with their assigned roles.")
+    @Operation(summary = "Get all policies", description = "Returns all policies without assignment details.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Policies retrieved successfully"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
@@ -110,12 +105,12 @@ public class PolicyController {
     }
 
     /**
-     * Get policy by ID with assigned roles
+     * Get policy by ID without assignments
      */
     @GetMapping("/{id}")
     @SuppressWarnings("unchecked")
     @Transactional(readOnly = true)
-    @Operation(summary = "Get policy by ID", description = "Returns a policy by its ID with assigned roles.")
+    @Operation(summary = "Get policy by ID", description = "Returns a policy by its ID.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Policy found and returned"),
             @ApiResponse(responseCode = "404", description = "Policy not found"),
@@ -142,6 +137,54 @@ public class PolicyController {
                     }
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Get endpoints assigned to a policy
+     */
+    @GetMapping("/{id}/endpoints")
+    @Transactional(readOnly = true)
+    @Operation(summary = "Get endpoints for a policy", description = "Returns endpoints linked to the specified policy.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Endpoints retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "Policy not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<List<Map<String, Object>>> getPolicyEndpoints(@PathVariable Long id, HttpServletRequest request) {
+        if (!policyRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        List<EndpointPolicy> endpointPolicies = endpointPolicyRepository.findByPolicyId(id);
+        List<Map<String, Object>> endpoints = endpointPolicies.stream()
+                .map(EndpointPolicy::getEndpoint)
+                .filter(endpoint -> endpoint != null)
+                .map(endpoint -> {
+                    Map<String, Object> endpointMap = new HashMap<>();
+                    endpointMap.put("id", endpoint.getId());
+                    endpointMap.put("service", endpoint.getService());
+                    endpointMap.put("version", endpoint.getVersion());
+                    endpointMap.put("method", endpoint.getMethod());
+                    endpointMap.put("path", endpoint.getPath());
+                    endpointMap.put("description", endpoint.getDescription());
+                    endpointMap.put("module", endpoint.getModule());
+                    endpointMap.put("isActive", endpoint.getIsActive());
+                    return endpointMap;
+                })
+                .collect(Collectors.toList());
+
+        try {
+            String responseJson = objectMapper.writeValueAsString(endpoints);
+            String eTag = ETagUtil.generateETag(responseJson);
+            String ifNoneMatch = request.getHeader(HttpHeaders.IF_NONE_MATCH);
+            if (eTag.equals(ifNoneMatch)) {
+                return ResponseEntity.status(304).eTag(eTag).build();
+            }
+            return ResponseEntity.ok().eTag(eTag).body(endpoints);
+        } catch (Exception e) {
+            logger.error("Error processing policy endpoints response", e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     /**
@@ -313,36 +356,6 @@ public class PolicyController {
         response.put("isActive", policy.getIsActive());
         response.put("createdAt", policy.getCreatedAt());
         response.put("updatedAt", policy.getUpdatedAt());
-
-        // Add roles that have this policy assigned
-        List<Role> roles = rolePolicyRepository.findRolesByPolicyId(policy.getId());
-        List<Map<String, Object>> roleList = roles.stream()
-                .map(role -> {
-                    Map<String, Object> roleMap = new HashMap<>();
-                    roleMap.put("id", role.getId());
-                    roleMap.put("name", role.getName());
-                    roleMap.put("description", role.getDescription());
-                    return roleMap;
-                })
-                .collect(Collectors.toList());
-        response.put("roles", roleList);
-
-        List<EndpointPolicy> endpointPolicies = endpointPolicyRepository.findByPolicyId(policy.getId());
-        List<Map<String, Object>> endpoints = endpointPolicies.stream()
-                .map(EndpointPolicy::getEndpoint)
-                .filter(Objects::nonNull)
-                .map(endpoint -> {
-                    Map<String, Object> endpointMap = new HashMap<>();
-                    endpointMap.put("id", endpoint.getId());
-                    endpointMap.put("service", endpoint.getService());
-                    endpointMap.put("version", endpoint.getVersion());
-                    endpointMap.put("method", endpoint.getMethod());
-                    endpointMap.put("path", endpoint.getPath());
-                    endpointMap.put("description", endpoint.getDescription());
-                    return endpointMap;
-                })
-                .collect(Collectors.toList());
-        response.put("endpoints", endpoints);
 
         return response;
     }

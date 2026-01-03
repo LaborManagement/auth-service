@@ -1,6 +1,9 @@
 package com.example.userauth.controller;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,21 +53,24 @@ public class RoleController {
 
     @Auditable(action = "GET_ALL_ROLES", resourceType = "ROLE")
     @GetMapping
-    @Operation(summary = "Get all roles")
+    @Operation(summary = "Get all roles", description = "Returns all roles without policy details.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Roles retrieved successfully"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<List<Role>> getAllRoles(HttpServletRequest request) {
+    public ResponseEntity<List<Map<String, Object>>> getAllRoles(HttpServletRequest request) {
         List<Role> roles = roleService.getAllRoles();
+        List<Map<String, Object>> response = roles.stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
         try {
-            String responseJson = objectMapper.writeValueAsString(roles);
+            String responseJson = objectMapper.writeValueAsString(response);
             String eTag = ETagUtil.generateETag(responseJson);
             String ifNoneMatch = request.getHeader(HttpHeaders.IF_NONE_MATCH);
             if (eTag.equals(ifNoneMatch)) {
                 return ResponseEntity.status(304).eTag(eTag).build();
             }
-            return ResponseEntity.ok().eTag(eTag).body(roles);
+            return ResponseEntity.ok().eTag(eTag).body(response);
         } catch (Exception e) {
             logger.error("Error processing roles response", e);
             return ResponseEntity.internalServerError().build();
@@ -100,50 +106,47 @@ public class RoleController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Role not found"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    @SuppressWarnings("unchecked")
-    public ResponseEntity<Role> getRoleById(@PathVariable Long id, HttpServletRequest request) {
-        return roleService.getRoleById(id)
+    public ResponseEntity<Map<String, Object>> getRoleById(@PathVariable Long id, HttpServletRequest request) {
+        return (ResponseEntity<Map<String, Object>>) roleService.getRoleById(id)
                 .map(role -> {
                     try {
-                        String responseJson = objectMapper.writeValueAsString(role);
+                        Map<String, Object> response = convertToResponse(role);
+                        String responseJson = objectMapper.writeValueAsString(response);
                         String eTag = ETagUtil.generateETag(responseJson);
                         String ifNoneMatch = request.getHeader(HttpHeaders.IF_NONE_MATCH);
                         if (eTag.equals(ifNoneMatch)) {
-                            return (ResponseEntity<Role>) (ResponseEntity<?>) ResponseEntity.status(304).eTag(eTag)
-                                    .build();
+                            return ResponseEntity.status(304).eTag(eTag).build();
                         }
-                        return (ResponseEntity<Role>) (ResponseEntity<?>) ResponseEntity.ok().eTag(eTag).body(role);
+                        return ResponseEntity.ok().eTag(eTag).body(response);
                     } catch (Exception e) {
                         logger.error("Error processing role response", e);
-                        return (ResponseEntity<Role>) (ResponseEntity<?>) ResponseEntity.internalServerError().build();
+                        return ResponseEntity.internalServerError().build();
                     }
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/by-name/{name}")
-    @Operation(summary = "Get role by name with permissions")
+    @Operation(summary = "Get role by name")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Role found and returned"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Role not found"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    @SuppressWarnings("unchecked")
-    public ResponseEntity<Role> getRoleByName(@PathVariable String name, HttpServletRequest request) {
-        return roleService.getRoleByNameWithPermissions(name)
+    public ResponseEntity<Map<String, Object>> getRoleByName(@PathVariable String name, HttpServletRequest request) {
+        return (ResponseEntity<Map<String, Object>>) roleService.getRoleByNameWithPermissions(name)
                 .map(role -> {
                     try {
-                        String responseJson = new com.fasterxml.jackson.databind.ObjectMapper()
-                                .writeValueAsString(role);
+                        Map<String, Object> response = convertToResponse(role);
+                        String responseJson = objectMapper.writeValueAsString(response);
                         String eTag = ETagUtil.generateETag(responseJson);
                         String ifNoneMatch = request.getHeader(HttpHeaders.IF_NONE_MATCH);
                         if (eTag.equals(ifNoneMatch)) {
-                            return (ResponseEntity<Role>) (ResponseEntity<?>) ResponseEntity.status(304).eTag(eTag)
-                                    .build();
+                            return ResponseEntity.status(304).eTag(eTag).build();
                         }
-                        return (ResponseEntity<Role>) (ResponseEntity<?>) ResponseEntity.ok().eTag(eTag).body(role);
+                        return ResponseEntity.ok().eTag(eTag).body(response);
                     } catch (Exception e) {
-                        return (ResponseEntity<Role>) (ResponseEntity<?>) ResponseEntity.internalServerError().build();
+                        return ResponseEntity.internalServerError().build();
                     }
                 })
                 .orElse(ResponseEntity.notFound().build());
@@ -253,6 +256,17 @@ public class RoleController {
     }
 
     // Request DTOs
+    private Map<String, Object> convertToResponse(Role role) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", role.getId());
+        response.put("name", role.getName());
+        response.put("description", role.getDescription());
+        response.put("isActive", role.getIsActive());
+        response.put("createdAt", role.getCreatedAt());
+        response.put("updatedAt", role.getUpdatedAt());
+        return response;
+    }
+
     public static class CreateRoleRequest {
         private String name;
         private String description;

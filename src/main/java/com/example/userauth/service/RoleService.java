@@ -4,7 +4,6 @@ import com.example.userauth.dao.RoleQueryDao;
 import com.example.userauth.entity.Role;
 import com.example.userauth.entity.User;
 import com.example.userauth.repository.RoleRepository;
-import com.example.userauth.repository.RolePolicyRepository;
 import com.example.userauth.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,11 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 @Service
 @Transactional
@@ -37,23 +34,11 @@ public class RoleService {
     @Autowired
     private RoleQueryDao roleQueryDao;
 
-    @Autowired
-    private RolePolicyRepository rolePolicyRepository;
-        
     // READ OPERATIONS - Using Query DAO
     @Transactional(readOnly = true)
     public List<Role> getAllRoles() {
         logger.debug("Fetching all roles using query DAO");
-        List<Role> roles = roleQueryDao.findAll();
-
-        for (Role role : roles) {
-            // Use new RolePolicy-based query instead of deprecated findRBACPoliciesByRole
-            Set<String> policies = new LinkedHashSet<>(
-                    rolePolicyRepository.findPolicyNamesByRoleName(role.getName()));
-            role.setPolicyNames(policies);
-        }
-
-        return roles;
+        return roleQueryDao.findAll();
     }
     
     @Transactional(readOnly = true)
@@ -65,39 +50,13 @@ public class RoleService {
     @Transactional(readOnly = true)
     public Optional<Role> getRoleById(Long id) {
         logger.debug("Fetching role by id: {} using query DAO", id);
-        Optional<Role> roleOpt = roleQueryDao.findById(id);
-        
-        if (roleOpt.isEmpty()) {
-            return roleOpt;
-        }
-        
-        Role role = roleOpt.get();
-        
-        // Use new RolePolicy-based query
-        Set<String> policies = new LinkedHashSet<>(
-                rolePolicyRepository.findPolicyNamesByRoleName(role.getName()));
-        role.setPolicyNames(policies);
-        
-        return Optional.of(role);
+        return roleQueryDao.findById(id);
     }
     
     @Transactional(readOnly = true)
     public Optional<Role> getRoleByName(String name) {
         logger.debug("Fetching role by name: {} using query DAO", name);
-        Optional<Role> roleOpt = roleQueryDao.findByName(name);
-        
-        if (roleOpt.isEmpty()) {
-            return roleOpt;
-        }
-        
-        Role role = roleOpt.get();
-        
-        // Use new RolePolicy-based query
-        Set<String> policies = new LinkedHashSet<>(
-                rolePolicyRepository.findPolicyNamesByRoleName(role.getName()));
-        role.setPolicyNames(policies);
-        
-        return Optional.of(role);
+        return roleQueryDao.findByName(name);
     }
     
     @Transactional(readOnly = true)
@@ -233,15 +192,7 @@ public class RoleService {
         if (roleOpt.isEmpty()) {
             return roleOpt;
         }
-
-        Role role = roleOpt.get();
-
-        // Use new RolePolicy-based query
-        Set<String> policyNames = new LinkedHashSet<>(
-                rolePolicyRepository.findPolicyNamesByRoleName(role.getName()));
-        role.setPolicyNames(policyNames);
-
-        return Optional.of(role);
+        return roleOpt;
     }
 
 }

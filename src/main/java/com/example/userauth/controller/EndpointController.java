@@ -104,12 +104,12 @@ public class EndpointController {
     }
 
     /**
-     * Get all endpoints with their policies
+     * Get all endpoints without policy assignments
      */
     @Auditable(action = "GET_ALL_ENDPOINTS", resourceType = "ENDPOINT")
     @GetMapping
     @Transactional(readOnly = true)
-    @Operation(summary = "Get all endpoints", description = "Returns all endpoints with their policies.")
+    @Operation(summary = "Get all endpoints", description = "Returns all endpoints without policy details.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Endpoints retrieved successfully"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
@@ -465,19 +465,6 @@ public class EndpointController {
         response.put("isActive", endpoint.getIsActive());
         response.put("createdAt", endpoint.getCreatedAt());
         response.put("updatedAt", endpoint.getUpdatedAt());
-
-        // Add policies
-        Set<EndpointPolicy> endpointPolicies = endpoint.getEndpointPolicies();
-        List<Map<String, Object>> policies = endpointPolicies.stream()
-                .map(ep -> {
-                    Map<String, Object> pol = new HashMap<>();
-                    pol.put("id", ep.getPolicy().getId());
-                    pol.put("name", ep.getPolicy().getName());
-                    pol.put("description", ep.getPolicy().getDescription());
-                    return pol;
-                })
-                .collect(Collectors.toList());
-        response.put("policies", policies);
 
         return response;
     }
