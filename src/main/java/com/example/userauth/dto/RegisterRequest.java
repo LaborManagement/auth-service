@@ -47,6 +47,12 @@ public class RegisterRequest {
     @JsonAlias({ "isActive", "enabled" })
     private Boolean enabled;
 
+    @JsonAlias({ "canread", "canRead" })
+    private Boolean canRead;
+
+    @JsonAlias({ "canwrite", "canWrite" })
+    private Boolean canWrite;
+
     private Boolean accountNonExpired;
 
     private Boolean accountNonLocked;
@@ -165,6 +171,22 @@ public class RegisterRequest {
 
     public Boolean getAccountNonExpired() {
         return accountNonExpired;
+    }
+
+    public Boolean getCanRead() {
+        return canRead;
+    }
+
+    public void setCanRead(Boolean canRead) {
+        this.canRead = canRead;
+    }
+
+    public Boolean getCanWrite() {
+        return canWrite;
+    }
+
+    public void setCanWrite(Boolean canWrite) {
+        this.canWrite = canWrite;
     }
 
     public void setAccountNonExpired(Boolean accountNonExpired) {

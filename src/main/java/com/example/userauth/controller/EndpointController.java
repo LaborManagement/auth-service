@@ -1,7 +1,10 @@
 package com.example.userauth.controller;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,6 +54,38 @@ import jakarta.servlet.http.HttpServletRequest;
 public class EndpointController {
 
     private static final Logger logger = LoggerFactory.getLogger(EndpointController.class);
+    private static final Set<String> ALLOWED_MODULES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+            "ENDPOINTS",
+            "POLICIES",
+            "ROLES",
+            "USERS",
+            "PAGE_ACTIONS",
+            "AUTHORIZATION",
+            "AUTHENTICATION",
+            "PAGES",
+            "POLICY_ROLE",
+            "MASTERS",
+            "WORKER_PAYMENT",
+            "WORKER_UPLOADS",
+            "EMPLOYER_RECEIPTS",
+            "WORKER_RECEIPTS",
+            "EMPLOYER_TOLI",
+            "PAYMENT_BATCH",
+            "WORKER_REF_UPLOAD",
+            "TENANT_ACCESS",
+            "BOARD_RECEIPTS",
+            "STATUS",
+            "BOARD_ALLOCATION",
+            "MASTER_UPLOAD",
+            "CLEARING_BANK_TXN",
+            "CLEARING_ALLOCATIONS",
+            "DRCR_NOTE",
+            "CLEARING_QUERY",
+            "RECON_TXN",
+            "VAN",
+            "MT940",
+            "RECON_TXN_SEARCH",
+            "RECON_TXN_UPLOAD")));
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -69,12 +104,12 @@ public class EndpointController {
     }
 
     /**
-     * Get all endpoints with their policies
+     * Get all endpoints without policy assignments
      */
     @Auditable(action = "GET_ALL_ENDPOINTS", resourceType = "ENDPOINT")
     @GetMapping
     @Transactional(readOnly = true)
-    @Operation(summary = "Get all endpoints", description = "Returns all endpoints with their policies.")
+    @Operation(summary = "Get all endpoints", description = "Returns all endpoints without policy details.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Endpoints retrieved successfully"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
@@ -132,7 +167,7 @@ public class EndpointController {
                                 .internalServerError().build();
                     }
                 })
-                .orElse(ResponseEntity.notFound().build());
+                .orElseGet(() -> ResponseEntity.notFound().<Map<String, Object>>build());
     }
 
     /**
@@ -147,12 +182,19 @@ public class EndpointController {
             @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public ResponseEntity<Map<String, Object>> createEndpoint(@RequestBody EndpointRequest request) {
+        String module = normalizeModule(request.getModule());
+        if (!ALLOWED_MODULES.contains(module)) {
+            return ResponseEntity.badRequest()
+                    .body(Collections.singletonMap("error", "Invalid module. Allowed: " + ALLOWED_MODULES));
+        }
+
         Endpoint endpoint = new Endpoint(
                 request.getService(),
                 request.getVersion(),
                 request.getMethod(),
                 request.getPath(),
-                request.getDescription());
+                request.getDescription(),
+                module);
         endpoint.setIsActive(request.getIsActive());
         Endpoint saved = endpointRepository.save(endpoint);
 
@@ -181,13 +223,20 @@ public class EndpointController {
             @PathVariable(value = "id", required = true) Long id,
             @RequestBody EndpointRequest request) {
 
-        return endpointRepository.findById(id)
+        return (ResponseEntity<Map<String, Object>>) endpointRepository.findById(id)
                 .map(endpoint -> {
                     endpoint.setService(request.getService());
                     endpoint.setVersion(request.getVersion());
                     endpoint.setMethod(request.getMethod());
                     endpoint.setPath(request.getPath());
                     endpoint.setDescription(request.getDescription());
+                    String module = request.getModule() == null ? endpoint.getModule()
+                            : normalizeModule(request.getModule());
+                    if (!ALLOWED_MODULES.contains(module)) {
+                        return ResponseEntity.badRequest()
+                                .body(Collections.singletonMap("error", "Invalid module. Allowed: " + ALLOWED_MODULES));
+                    }
+                    endpoint.setModule(module);
                     endpoint.setIsActive(request.getIsActive());
                     endpointRepository.save(endpoint);
 
@@ -411,25 +460,20 @@ public class EndpointController {
         response.put("version", endpoint.getVersion());
         response.put("method", endpoint.getMethod());
         response.put("path", endpoint.getPath());
+        response.put("module", endpoint.getModule());
         response.put("description", endpoint.getDescription());
         response.put("isActive", endpoint.getIsActive());
         response.put("createdAt", endpoint.getCreatedAt());
         response.put("updatedAt", endpoint.getUpdatedAt());
 
-        // Add policies
-        Set<EndpointPolicy> endpointPolicies = endpoint.getEndpointPolicies();
-        List<Map<String, Object>> policies = endpointPolicies.stream()
-                .map(ep -> {
-                    Map<String, Object> pol = new HashMap<>();
-                    pol.put("id", ep.getPolicy().getId());
-                    pol.put("name", ep.getPolicy().getName());
-                    pol.put("description", ep.getPolicy().getDescription());
-                    return pol;
-                })
-                .collect(Collectors.toList());
-        response.put("policies", policies);
-
         return response;
+    }
+
+    private String normalizeModule(String module) {
+        if (module == null || module.trim().isEmpty()) {
+            return "AUTHORIZATION";
+        }
+        return module.trim().toUpperCase();
     }
 
     // DTO classes
@@ -440,6 +484,7 @@ public class EndpointController {
         private String method;
         private String path;
         private String description;
+        private String module;
         private Boolean isActive = true;
 
         // Getters and Setters
@@ -481,6 +526,14 @@ public class EndpointController {
 
         public void setDescription(String description) {
             this.description = description;
+        }
+
+        public String getModule() {
+            return module;
+        }
+
+        public void setModule(String module) {
+            this.module = module;
         }
 
         public Boolean getIsActive() {

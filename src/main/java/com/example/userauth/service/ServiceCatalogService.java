@@ -113,7 +113,7 @@ public class ServiceCatalogService {
     public Map<String, List<Map<String, Object>>> getEndpointsCatalog() {
         List<Endpoint> endpoints = endpointRepository.findByIsActiveTrue();
 
-        Map<String, List<Map<String, Object>>> endpointsByService = new HashMap<>();
+        Map<String, List<Map<String, Object>>> endpointsByModule = new HashMap<>();
 
         for (Endpoint endpoint : endpoints) {
             Map<String, Object> endpointData = new HashMap<>();
@@ -122,15 +122,16 @@ public class ServiceCatalogService {
             endpointData.put("method", endpoint.getMethod());
             endpointData.put("path", endpoint.getPath());
             endpointData.put("description", endpoint.getDescription());
-            endpointData.put("ui_type", endpoint.getUiType());
+            endpointData.put("module", endpoint.getModule());
 
-            endpointsByService
-                    .computeIfAbsent(endpoint.getService(), k -> new ArrayList<>())
+            String module = endpoint.getModule() != null ? endpoint.getModule() : "UNSPECIFIED";
+            endpointsByModule
+                    .computeIfAbsent(module, k -> new ArrayList<>())
                     .add(endpointData);
         }
 
-        logger.debug("Cataloged {} endpoints across {} services", endpoints.size(), endpointsByService.size());
-        return endpointsByService;
+        logger.debug("Cataloged {} endpoints across {} modules", endpoints.size(), endpointsByModule.size());
+        return endpointsByModule;
     }
 
     /**
@@ -190,7 +191,7 @@ public class ServiceCatalogService {
         dto.put("method", endpoint.getMethod());
         dto.put("path", endpoint.getPath());
         dto.put("description", endpoint.getDescription());
-        dto.put("ui_type", endpoint.getUiType());
+        dto.put("module", endpoint.getModule());
 
         // Try to enhance with annotation data if available
         Map<String, Object> annotationData = getAnnotationDataForEndpoint(endpoint);
@@ -221,7 +222,7 @@ public class ServiceCatalogService {
      */
     private Map<String, Object> scanForUiTypeAnnotation(String path, String method) {
         // This is a placeholder - you'd need to implement classpath scanning
-        // For now, return null and rely on database uiType field
+        // For now, return null and rely on database module field
         return null;
     }
 

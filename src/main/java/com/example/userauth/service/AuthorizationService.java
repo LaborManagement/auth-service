@@ -160,7 +160,7 @@ public class AuthorizationService {
         summary.put("version", endpoint.getVersion());
         summary.put("method", endpoint.getMethod());
         summary.put("path", endpoint.getPath());
-        summary.put("ui_type", endpoint.getUiType());
+        summary.put("module", endpoint.getModule());
         summary.put("description", endpoint.getDescription());
         return summary;
     }

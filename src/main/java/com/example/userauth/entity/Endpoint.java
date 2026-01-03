@@ -42,8 +42,8 @@ public class Endpoint extends AbstractAuditableEntity<Long> {
     @Column(columnDefinition = "TEXT")
     private String description; // Endpoint description
 
-    @Column(name = "ui_type", length = 32)
-    private String uiType; // UI usage type: ACTION, LIST, FORM, UPLOAD, etc.
+    @Column(name = "module", length = 32, nullable = false)
+    private String module; // Functional module this endpoint belongs to
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
@@ -62,21 +62,16 @@ public class Endpoint extends AbstractAuditableEntity<Long> {
     }
 
     public Endpoint(String service, String version, String method, String path, String description) {
-        this.service = service;
-        this.version = version;
-        this.method = method;
-        this.path = path;
-        this.description = description;
-        this.isActive = true;
+        this(service, version, method, path, description, "AUTHORIZATION");
     }
 
-    public Endpoint(String service, String version, String method, String path, String description, String uiType) {
+    public Endpoint(String service, String version, String method, String path, String description, String module) {
         this.service = service;
         this.version = version;
         this.method = method;
         this.path = path;
         this.description = description;
-        this.uiType = uiType;
+        this.module = module;
         this.isActive = true;
     }
 
@@ -140,12 +135,12 @@ public class Endpoint extends AbstractAuditableEntity<Long> {
         this.description = description;
     }
 
-    public String getUiType() {
-        return uiType;
+    public String getModule() {
+        return module;
     }
 
-    public void setUiType(String uiType) {
-        this.uiType = uiType;
+    public void setModule(String module) {
+        this.module = module;
     }
 
     public Boolean getIsActive() {
@@ -201,7 +196,7 @@ public class Endpoint extends AbstractAuditableEntity<Long> {
                 "method", method,
                 "path", path,
                 "description", description,
-                "uiType", uiType,
+                "module", module,
                 "isActive", isActive,
                 "policyIds", endpointPolicies.stream()
                         .map(ep -> ep.getPolicy() != null ? ep.getPolicy().getId() : null)
