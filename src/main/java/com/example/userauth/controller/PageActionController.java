@@ -59,6 +59,7 @@ public class PageActionController {
      */
     @Auditable(action = "GET_ALL_PAGE_ACTIONS", resourceType = "PAGE_ACTION")
     @GetMapping
+    @Transactional(readOnly = true)
     @Operation(summary = "Get all page actions", description = "Returns all page actions.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Page actions retrieved successfully")
@@ -76,6 +77,7 @@ public class PageActionController {
      */
     @Auditable(action = "GET_PAGE_ACTION_BY_ID", resourceType = "PAGE_ACTION")
     @GetMapping("/{id}")
+    @Transactional(readOnly = true)
     @Operation(summary = "Get page action by ID", description = "Returns a page action by its ID.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Page action found and returned"),
@@ -92,6 +94,7 @@ public class PageActionController {
      */
     @Auditable(action = "GET_ACTIONS_FOR_PAGE", resourceType = "PAGE_ACTION")
     @GetMapping("/page/{pageId}")
+    @Transactional(readOnly = true)
     @Operation(summary = "Get actions for a specific page", description = "Returns all actions for a given page ID.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Actions for page retrieved successfully")
@@ -213,6 +216,7 @@ public class PageActionController {
      */
     @Auditable(action = "TOGGLE_PAGE_ACTION_ACTIVE", resourceType = "PAGE_ACTION")
     @PatchMapping("/{id}/toggle-active")
+    @Transactional
     @Operation(summary = "Toggle page action active status", description = "Toggles the active status of a page action by ID.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Page action status toggled successfully"),
