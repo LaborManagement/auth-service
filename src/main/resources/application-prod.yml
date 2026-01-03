@@ -16,7 +16,7 @@ spring:
       connection-timeout: 20000
       leak-detection-threshold: 30000
       connection-test-query: SELECT 1
-      auto-commit: true   # keep transaction-local RLS context and recycle cleanly
+      auto-commit: false   # keep transaction-local RLS context and recycle cleanly
   jpa:
     hibernate:
       ddl-auto: none  # Don't auto-create tables in prod
