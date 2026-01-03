@@ -139,19 +139,25 @@ public class AuthService {
             throw new RuntimeException("Error: Email is already in use!");
         }
 
+        if (!StringUtils.hasText(registerRequest.getUserType())) {
+            throw new RuntimeException("Error: User type is required for registration!");
+        }
+        String normalizedUserType = registerRequest.getUserType().trim().toUpperCase();
+        boolean requiresToli = normalizedUserType.equals("EMPLOYEE");
+        boolean requiresEmployer = normalizedUserType.equals("EMPLOYER");
+
         // Validate board_id is provided
         if (!StringUtils.hasText(registerRequest.getBoardId())) {
             throw new RuntimeException("Error: Board ID is required for registration!");
         }
 
-        if (!StringUtils.hasText(registerRequest.getToliId())) {
-            throw new RuntimeException("Error: Toli ID is required for registration!");
+        if (requiresToli && !StringUtils.hasText(registerRequest.getToliId())) {
+            throw new RuntimeException("Error: Toli ID is required for EMPLOYEE registration!");
         }
 
-        if (!StringUtils.hasText(registerRequest.getUserType())) {
-            throw new RuntimeException("Error: User type is required for registration!");
+        if (requiresEmployer && !StringUtils.hasText(registerRequest.getEmployerId())) {
+            throw new RuntimeException("Error: Employer ID is required for EMPLOYER registration!");
         }
-        String normalizedUserType = registerRequest.getUserType().trim().toUpperCase();
 
         UserRole userRole = registerRequest.getRole() != null ? registerRequest.getRole() : UserRole.WORKER;
 
@@ -184,8 +190,12 @@ public class AuthService {
 
         // Create ACL entry for the user with board_id and employer_id mapping
         Long boardId = parseRequiredLong(registerRequest.getBoardId(), "boardId");
-        Long employerId = parseOptionalLong(registerRequest.getEmployerId(), "employerId");
-        Long toliId = parseRequiredLong(registerRequest.getToliId(), "toliId");
+        Long employerId = requiresEmployer
+                ? parseRequiredLong(registerRequest.getEmployerId(), "employerId")
+                : parseOptionalLong(registerRequest.getEmployerId(), "employerId");
+        Long toliId = requiresToli
+                ? parseRequiredLong(registerRequest.getToliId(), "toliId")
+                : parseOptionalLong(registerRequest.getToliId(), "toliId");
 
         UserTenantAcl userTenantAcl = new UserTenantAcl();
         userTenantAcl.setUserId(user.getId());
