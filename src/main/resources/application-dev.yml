@@ -15,7 +15,7 @@ spring:
       idle-timeout: 60000           # drop idle connections after 60s
       max-lifetime: 600000          # 10 minutes; recycle before RDS reaps
       connection-timeout: 20000     # wait a bit for a slot before failing
-      auto-commit: true             # Important: allows transaction-local settings
+      auto-commit: false             # Important: allows transaction-local settings
       leak-detection-threshold: 30000  # 30s; enable only while hunting leaks
       data-source-properties:
         preparedStatementCacheQueries: 256
