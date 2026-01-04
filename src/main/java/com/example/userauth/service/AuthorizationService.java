@@ -120,6 +120,7 @@ public class AuthorizationService {
         Map<String, Object> response = new HashMap<>();
         response.put("userId", userId);
         response.put("username", user.getUsername());
+        response.put("user_type", user.getUserType());
         response.put("roles", matrix.getRoles());
         response.put("pages", pages);
         response.put("version", System.currentTimeMillis());

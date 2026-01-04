@@ -34,7 +34,6 @@ public class RegisterRequest {
     @Size(max = 64, message = "Employer ID must be at most 64 characters")
     private String employerId;
 
-    @NotBlank(message = "Toli ID is required")
     @Size(min = 1, max = 64, message = "Toli ID must be between 1 and 64 characters")
     private String toliId;
 
