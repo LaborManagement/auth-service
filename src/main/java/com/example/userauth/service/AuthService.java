@@ -143,21 +143,10 @@ public class AuthService {
             throw new RuntimeException("Error: User type is required for registration!");
         }
         String normalizedUserType = registerRequest.getUserType().trim().toUpperCase();
-        boolean requiresToli = normalizedUserType.equals("EMPLOYEE");
-        boolean requiresEmployer = normalizedUserType.equals("EMPLOYER");
+        boolean requiresToli = false; // relaxed; handled by tenant access screen
+        boolean requiresEmployer = false; // relaxed; handled by tenant access screen
 
-        // Validate board_id is provided
-        if (!StringUtils.hasText(registerRequest.getBoardId())) {
-            throw new RuntimeException("Error: Board ID is required for registration!");
-        }
-
-        if (requiresToli && !StringUtils.hasText(registerRequest.getToliId())) {
-            throw new RuntimeException("Error: Toli ID is required for EMPLOYEE registration!");
-        }
-
-        if (requiresEmployer && !StringUtils.hasText(registerRequest.getEmployerId())) {
-            throw new RuntimeException("Error: Employer ID is required for EMPLOYER registration!");
-        }
+        // Tenant linkage is now optional at creation; will be assigned later via linkage UI
 
         UserRole userRole = registerRequest.getRole() != null ? registerRequest.getRole() : UserRole.WORKER;
 
@@ -188,40 +177,39 @@ public class AuthService {
 
         logger.info("User {} registered successfully", user.getUsername());
 
-        // Create ACL entry for the user with board_id and employer_id mapping
-        Long boardId = parseRequiredLong(registerRequest.getBoardId(), "boardId");
-        Long employerId = requiresEmployer
-                ? parseRequiredLong(registerRequest.getEmployerId(), "employerId")
-                : parseOptionalLong(registerRequest.getEmployerId(), "employerId");
-        Long toliId = requiresToli
-                ? parseRequiredLong(registerRequest.getToliId(), "toliId")
-                : parseOptionalLong(registerRequest.getToliId(), "toliId");
+        // Create ACL entry only if boardId is provided; linkage UI may add later
+        Long boardId = parseOptionalLong(registerRequest.getBoardId(), "boardId");
+        Long employerId = parseOptionalLong(registerRequest.getEmployerId(), "employerId");
+        Long toliId = parseOptionalLong(registerRequest.getToliId(), "toliId");
+        if (boardId != null) {
+            UserTenantAcl userTenantAcl = new UserTenantAcl();
+            userTenantAcl.setUserId(user.getId());
+            userTenantAcl.setBoardId(boardId);
+            userTenantAcl.setEmployerId(employerId);
+            userTenantAcl.setToliId(toliId);
 
-        UserTenantAcl userTenantAcl = new UserTenantAcl();
-        userTenantAcl.setUserId(user.getId());
-        userTenantAcl.setBoardId(boardId);
-        userTenantAcl.setEmployerId(employerId);
-        userTenantAcl.setToliId(toliId);
+            boolean canRead = registerRequest.getCanRead() != null ? registerRequest.getCanRead() : true;
+            boolean canWrite = registerRequest.getCanWrite() != null
+                    ? registerRequest.getCanWrite()
+                    : (userRole == UserRole.ADMIN || userRole == UserRole.EMPLOYER);
 
-        boolean canRead = registerRequest.getCanRead() != null ? registerRequest.getCanRead() : true;
-        boolean canWrite = registerRequest.getCanWrite() != null
-                ? registerRequest.getCanWrite()
-                : (userRole == UserRole.ADMIN || userRole == UserRole.EMPLOYER);
+            // Write implies read; avoid inconsistent ACL rows
+            if (canWrite && !canRead) {
+                canRead = true;
+            }
 
-        // Write implies read; avoid inconsistent ACL rows
-        if (canWrite && !canRead) {
-            canRead = true;
+            userTenantAcl.setCanRead(canRead);
+            userTenantAcl.setCanWrite(canWrite);
+
+            userTenantAclRepository.save(userTenantAcl);
+
+            logger.info("Created user_tenant_acl entry for user {} with read={}, write={}",
+                    user.getId(),
+                    userTenantAcl.getCanRead(),
+                    userTenantAcl.getCanWrite());
+        } else {
+            logger.info("Skipping initial tenant ACL creation for user {} (no boardId provided)", user.getUsername());
         }
-
-        userTenantAcl.setCanRead(canRead);
-        userTenantAcl.setCanWrite(canWrite);
-
-        userTenantAclRepository.save(userTenantAcl);
-
-        logger.info("Created user_tenant_acl entry for user {} with read={}, write={}",
-                user.getId(),
-                userTenantAcl.getCanRead(),
-                userTenantAcl.getCanWrite());
 
         // Auto-login after registration
         Authentication authentication = authenticationManager.authenticate(

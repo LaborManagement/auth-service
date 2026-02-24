@@ -27,14 +27,13 @@ public class RegisterRequest {
     
     private UserRole role;
     
-    @NotBlank(message = "Board ID is required")
-    @Size(min = 1, max = 64, message = "Board ID must be between 1 and 64 characters")
+    @Size(max = 64, message = "Board ID must be at most 64 characters")
     private String boardId;
     
     @Size(max = 64, message = "Employer ID must be at most 64 characters")
     private String employerId;
 
-    @Size(min = 1, max = 64, message = "Toli ID must be between 1 and 64 characters")
+    @Size(max = 64, message = "Toli ID must be at most 64 characters")
     private String toliId;
 
     @NotBlank(message = "User type is required")
