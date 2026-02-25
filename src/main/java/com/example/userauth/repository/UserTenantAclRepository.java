@@ -42,6 +42,10 @@ public interface UserTenantAclRepository extends JpaRepository<UserTenantAcl, Lo
     List<UserTenantAcl> findByUserIdAndBoardId(Long userId, Long boardId);
 
     List<UserTenantAcl> findByUserIdAndBoardIdAndToliId(Long userId, Long boardId, Long toliId);
+
+    List<UserTenantAcl> findByUserIdAndEmployerId(Long userId, Long employerId);
+
+    List<UserTenantAcl> findByUserIdAndToliId(Long userId, Long toliId);
     
     /**
      * Delete all ACL records for a user.

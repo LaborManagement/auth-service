@@ -3,6 +3,9 @@ package com.example.userauth.dao;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -25,6 +28,36 @@ public class UserTenantAclQueryDao {
 
     public UserTenantAclQueryDao(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+    }
+
+    /**
+     * Allowed employer/toli combos for an anchor.
+     * EMPLOYER anchor -> rows with that employer_id; EMPLOYEE anchor -> rows with that toli_id.
+     */
+    public Set<String> getAllowedKeysForAnchor(String anchorType, Long anchorId) {
+        String sql;
+        Object[] args;
+        if ("EMPLOYER".equalsIgnoreCase(anchorType)) {
+            sql = "SELECT board_id, employer_id, toli_id FROM payment_flow.employer_toli_relation WHERE employer_id = ?";
+            args = new Object[] { anchorId };
+        } else {
+            sql = "SELECT board_id, employer_id, toli_id FROM payment_flow.employer_toli_relation WHERE toli_id = ?";
+            args = new Object[] { anchorId };
+        }
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, args);
+        return rows.stream()
+                .map(row -> {
+                    Long b = ((Number) row.get("board_id")).longValue();
+                    Long e = ((Number) row.get("employer_id")).longValue();
+                    Long t = ((Number) row.get("toli_id")).longValue();
+                    return key(b, e, t);
+                })
+                .collect(Collectors.toSet());
+    }
+
+    private String key(Long boardId, Long employerId, Long toliId) {
+        return boardId + "-" + employerId + "-" + toliId;
     }
 
     /**

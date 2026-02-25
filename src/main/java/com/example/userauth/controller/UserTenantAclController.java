@@ -53,6 +53,21 @@ public class UserTenantAclController {
             Boolean canWrite) {
     }
 
+    public record BulkReplaceRequest(
+            @NotNull Long userId,
+            @NotNull String anchorType, // EMPLOYER or EMPLOYEE
+            @NotNull Long anchorId,
+            List<BulkItem> items) {
+    }
+
+    public record BulkItem(
+            @NotNull Long boardId,
+            Long employerId,
+            Long toliId,
+            Boolean canRead,
+            Boolean canWrite) {
+    }
+
     @GetMapping("/{userId}")
     @Operation(summary = "Get enriched ACL entries for user", description = "Returns user tenant ACL entries with employer and toli details including registration numbers and names", security = @SecurityRequirement(name = "Bearer Authentication"))
     @ApiResponses({
@@ -92,6 +107,14 @@ public class UserTenantAclController {
         aclRepository.save(acl);
         authService.updateUserPermissions(request.userId());
         return ResponseEntity.ok(Map.of("message", "ACL saved"));
+    }
+
+    @PostMapping("/bulk-replace")
+    @Operation(summary = "Replace ACL rows for a user + anchor", description = "AnchorType EMPLOYER => anchorId is employer; AnchorType EMPLOYEE => anchorId is toli. Validates employer_toli_relation combos before saving.", security = @SecurityRequirement(name = "Bearer Authentication"))
+    public ResponseEntity<?> bulkReplace(@Valid @RequestBody BulkReplaceRequest request) {
+        userTenantAclService.bulkReplace(request);
+        authService.updateUserPermissions(request.userId());
+        return ResponseEntity.ok(Map.of("message", "ACL updated"));
     }
 
     @DeleteMapping
