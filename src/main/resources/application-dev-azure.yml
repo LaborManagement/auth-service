@@ -1,0 +1,111 @@
+# Development environment configuration
+spring:
+  datasource:
+    # PostgreSQL connection for RLS/VPD
+    #url: ${DB_URL:jdbc:postgresql://localhost:5432/lbe?currentSchema=auth}
+    url: ${DB_URL:jdbc:postgresql://psql-lms-pmc-dev.postgres.database.azure.com:5432/lbe?currentSchema=auth}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:app_auth}
+    password: ${DB_PASSWORD:root}
+    # HikariCP connection pooling configuration
+    # CRITICAL: These settings ensure transaction-local RLS context persists
+    hikari:
+      maximum-pool-size: 8          # right-size for db.t4g.micro; leaves headroom for other services
+      minimum-idle: 2               # avoid hoarding idle slots while keeping warm pool
+      idle-timeout: 60000           # drop idle connections after 60s
+      max-lifetime: 600000          # 10 minutes; recycle before RDS reaps
+      connection-timeout: 20000     # wait a bit for a slot before failing
+      auto-commit: false             # Important: allows transaction-local settings
+      leak-detection-threshold: 30000  # 30s; enable only while hunting leaks
+      data-source-properties:
+        preparedStatementCacheQueries: 256
+        preparedStatementCacheSizeMiB: 5
+        reWriteBatchedInserts: true
+        tcpKeepAlive: true
+      keepalive-time: 30000         # ping occasionally so RDS doesn't reap early
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: auth
+
+
+logging:
+  level:
+    "[com.example.userauth]": WARN
+    "[com.shared.entityaudit]": INFO
+    "[org.hibernate.SQL]": ${LOG_SQL_LEVEL:WARN}
+    "[org.hibernate.type.descriptor.sql.BasicBinder]": ${LOG_SQL_BINDER_LEVEL:WARN}
+  file:
+    name: logs/dev.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%logger{36}] [%X{sessionToken}] [%X{X-Request-ID}] - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%logger{36}] [%X{sessionToken}] [%X{X-Request-ID}] - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,beans,env,metrics,loggers
+
+# Audit Utility Configuration
+shared-lib:
+  entity-audit:
+    enabled: true
+    table-name: audit.entity_audit_event
+    service-name: auth-service
+    source-schema: auth
+    source-table: users
+    hashing-algorithm: SHA-256
+    initial-hash-value: 0000000000000000000000000000000000000000000000000000000000000000
+  audit:
+    enabled: true  # Set to true to enable audit logging
+    table-name: audit.audit_event
+    service-name: auth-service
+    source-schema: auth
+    hashing-algorithm: SHA-256
+    initial-hash-value: 0000000000000000000000000000000000000000000000000000000000000000
+  # SFTP Utility Configuration
+  sftp:
+    enabled: false  # Set to true to enable SFTP operations
+    host: localhost
+    port: 22
+    username: user
+    password: password
+    remote-directory: /incoming
+    local-directory: /tmp/sftp
+    known-hosts-file: ~/.ssh/known_hosts
+    strict-host-key-checking: true
+  filters:
+    enabled: true 
+  security:
+    cors:
+      enabled: true
+      allowed-origins:
+        - http://localhost:5173
+        - http://localhost:5174
+        - http://localhost:80
+        - http://ec2-13-203-201-93.ap-south-1.compute.amazonaws.com
+        - https://master.d1d3zs9vbo6lnu.amplifyapp.com
+      allowed-methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+        - PATCH
+      allowed-headers:
+        - "*"
+      allow-credentials: true
+      max-age: 3600
+server:
+  address: 0.0.0.0
+  port: 8080
+
+auth:
+  internal:
+    api-key: ${INTERNAL_API_KEY:4f0d3ac5a91b7fe246d3851c09a2f718f6c8d42704e3b89a1f2d6c7b81e4f0a3}
+    api-key-header: X-Internal-Api-Key
